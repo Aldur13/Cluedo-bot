@@ -6,3 +6,8 @@ venv/
 *.egg-info/
 .cluedo_assistant/
 *.autosave.json
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
