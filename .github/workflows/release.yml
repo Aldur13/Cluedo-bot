@@ -1,0 +1,44 @@
+name: Build and release Windows executable
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Build executable
+        run: |
+          pyinstaller --onefile --windowed --name CluedoAssistant --add-data "cluedo/data;cluedo/data" main.py
+
+      - name: Rename executable to include version
+        shell: bash
+        run: cp dist/CluedoAssistant.exe "dist/CluedoAssistant-${{ github.ref_name }}.exe"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/CluedoAssistant.exe
+            dist/CluedoAssistant-${{ github.ref_name }}.exe
+          generate_release_notes: true
