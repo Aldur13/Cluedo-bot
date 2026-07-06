@@ -1,6 +1,47 @@
 """Small reusable Tkinter helpers."""
 import tkinter as tk
 
+from cluedo.gui import theme
+
+
+class ChoiceGrid:
+    """A grid of single-click buttons bound to one tk.StringVar -- replaces a
+    dropdown (which always costs two clicks and hides the other options) with
+    every option visible and selectable in one click. The selected button is
+    highlighted; clicking updates the variable, which triggers any trace_add
+    callbacks exactly like a dropdown would."""
+
+    def __init__(self, parent, options, variable, columns=3, bg=None):
+        self.variable = variable
+        self.buttons = {}
+        self.frame = tk.Frame(parent, bg=bg or theme.BG)
+        for i, name in enumerate(options):
+            btn = tk.Button(
+                self.frame, text=name, font=theme.body_font(9), width=15,
+                anchor="w", padx=6, pady=5, relief="raised", bd=1,
+                command=lambda n=name: self._select(n),
+            )
+            btn.grid(row=i // columns, column=i % columns, padx=2, pady=2, sticky="nsew")
+            self.buttons[name] = btn
+        for c in range(columns):
+            self.frame.grid_columnconfigure(c, weight=1)
+        self._refresh()
+
+    def _select(self, name):
+        self.variable.set(name)
+        self._refresh()
+
+    def _refresh(self):
+        current = self.variable.get()
+        for name, btn in self.buttons.items():
+            if name == current:
+                btn.config(bg=theme.ACCENT, fg="white", relief="sunken")
+            else:
+                btn.config(bg=theme.PANEL_BG, fg=theme.TEXT, relief="raised")
+
+    def pack(self, **kwargs):
+        self.frame.pack(**kwargs)
+
 
 class Tooltip:
     """Hover tooltip. `text_fn` may be a plain string or a zero-arg callable

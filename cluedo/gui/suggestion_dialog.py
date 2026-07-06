@@ -3,7 +3,23 @@ from tkinter import messagebox
 
 from cluedo.engine import ContradictionError
 from cluedo.gui import theme
+from cluedo.gui.widgets import ChoiceGrid
 from cluedo.models import SuggestionResponse
+
+# Remembers the last-picked suspect/weapon/room across dialog opens (within
+# this process) so logging several suggestions in a row doesn't require
+# re-picking from scratch every time. Suggester is *not* remembered here --
+# it's defaulted from turn order instead, which is a stronger signal.
+_last_choice = {"suspect": None, "weapon": None, "room": None}
+
+
+def _default_suggester_seat(gs):
+    """Whoever's turn it is next, based on the last logged suggestion --
+    Cluedo turns rotate around the table, so this is right far more often
+    than defaulting to seat 0 or to the user."""
+    if gs.history:
+        return (gs.history[-1].suggester_seat + 1) % len(gs.players)
+    return 0
 
 
 def open_dialog(app, edit_suggestion=None):
@@ -13,39 +29,64 @@ def open_dialog(app, edit_suggestion=None):
 
     win = tk.Toplevel(app.root)
     win.title("Edit Suggestion" if edit_suggestion else "Log Suggestion")
-    win.geometry("440x520")
+    win.geometry("520x680")
     win.configure(bg=theme.BG)
     win.grab_set()
 
-    tk.Label(win, text="Suggesting player:", font=theme.body_font(10), bg=theme.BG).pack(
-        anchor="w", padx=14, pady=(14, 2)
-    )
-    default_suggester = gs.players[edit_suggestion.suggester_seat].name if edit_suggestion else gs.players[0].name
-    suggester_var = tk.StringVar(value=default_suggester)
-    tk.OptionMenu(win, suggester_var, *[p.name for p in gs.players]).pack(fill="x", padx=14)
+    # Fixed action bar at the bottom, packed first so it never scrolls away.
+    btns = tk.Frame(win, bg=theme.BG)
+    btns.pack(side="bottom", pady=12)
 
-    def card_dropdown(label, names, default):
-        tk.Label(win, text=label, font=theme.body_font(10), bg=theme.BG).pack(anchor="w", padx=14, pady=(10, 2))
-        var = tk.StringVar(value=default)
-        tk.OptionMenu(win, var, *names).pack(fill="x", padx=14)
-        return var
-
-    suspect_var = card_dropdown(
-        "Suspect:", list(gs.config.suspects), edit_suggestion.suspect.name if edit_suggestion else gs.config.suspects[0]
-    )
-    weapon_var = card_dropdown(
-        "Weapon:", list(gs.config.weapons), edit_suggestion.weapon.name if edit_suggestion else gs.config.weapons[0]
-    )
-    room_var = card_dropdown(
-        "Room:", list(gs.config.rooms), edit_suggestion.room.name if edit_suggestion else gs.config.rooms[0]
-    )
-
-    responses_frame = tk.Frame(win, bg=theme.BG)
-    responses_frame.pack(fill="both", expand=True, padx=14, pady=12)
-    response_state: dict[int, tuple[tk.StringVar, tk.StringVar]] = {}
+    scroll_area = tk.Frame(win, bg=theme.BG)
+    scroll_area.pack(side="top", fill="both", expand=True)
+    canvas = tk.Canvas(scroll_area, bg=theme.BG, highlightthickness=0)
+    vscroll = tk.Scrollbar(scroll_area, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=vscroll.set)
+    vscroll.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+    content = tk.Frame(canvas, bg=theme.BG)
+    canvas.create_window((0, 0), window=content, anchor="nw")
+    content.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
     def seat_for_name(name):
         return next(p.seat_index for p in gs.players if p.name == name)
+
+    default_suggester_seat = (
+        edit_suggestion.suggester_seat if edit_suggestion else _default_suggester_seat(gs)
+    )
+    suggester_var = tk.StringVar(value=gs.players[default_suggester_seat].name)
+
+    tk.Label(content, text="Suggesting player:", font=theme.body_font(10), bg=theme.BG).pack(
+        anchor="w", padx=14, pady=(14, 2)
+    )
+    ChoiceGrid(content, [p.name for p in gs.players], suggester_var, columns=3).pack(
+        fill="x", padx=14
+    )
+
+    def choice_section(label, names, default):
+        tk.Label(content, text=label, font=theme.body_font(10), bg=theme.BG).pack(
+            anchor="w", padx=14, pady=(12, 2)
+        )
+        var = tk.StringVar(value=default)
+        ChoiceGrid(content, names, var, columns=3).pack(fill="x", padx=14)
+        return var
+
+    suspect_var = choice_section(
+        "Suspect:", list(gs.config.suspects),
+        edit_suggestion.suspect.name if edit_suggestion else (_last_choice["suspect"] or gs.config.suspects[0]),
+    )
+    weapon_var = choice_section(
+        "Weapon:", list(gs.config.weapons),
+        edit_suggestion.weapon.name if edit_suggestion else (_last_choice["weapon"] or gs.config.weapons[0]),
+    )
+    room_var = choice_section(
+        "Room:", list(gs.config.rooms),
+        edit_suggestion.room.name if edit_suggestion else (_last_choice["room"] or gs.config.rooms[0]),
+    )
+
+    responses_frame = tk.Frame(content, bg=theme.BG)
+    responses_frame.pack(fill="both", expand=True, padx=14, pady=(12, 4))
+    response_state: dict[int, tuple[tk.StringVar, tk.StringVar]] = {}
 
     def rebuild_responses():
         for child in responses_frame.winfo_children():
@@ -131,11 +172,13 @@ def open_dialog(app, edit_suggestion=None):
             messagebox.showerror("Impossible", exc.message)
             return
 
+        _last_choice["suspect"] = suspect.name
+        _last_choice["weapon"] = weapon.name
+        _last_choice["room"] = room.name
+
         app.after_mutation()
         win.destroy()
 
-    btns = tk.Frame(win, bg=theme.BG)
-    btns.pack(pady=12)
     tk.Button(btns, text="Save (Enter)", bg=theme.ACCENT, fg="white", font=theme.body_font(10),
               padx=16, pady=6, command=submit).pack(side="left", padx=6)
     tk.Button(btns, text="Cancel (Esc)", font=theme.body_font(10), padx=16, pady=6, command=win.destroy).pack(
