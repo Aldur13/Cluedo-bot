@@ -1,0 +1,6 @@
+{
+  "edition": "Clue Classic (US)",
+  "suspects": ["Miss Scarlet", "Colonel Mustard", "Mrs. White", "Mr. Green", "Mrs. Peacock", "Professor Plum"],
+  "weapons": ["Candlestick", "Knife", "Lead Pipe", "Revolver", "Rope", "Wrench"],
+  "rooms": ["Kitchen", "Ballroom", "Conservatory", "Dining Room", "Billiard Room", "Library", "Lounge", "Hall", "Study"]
+}
