@@ -1,0 +1,6 @@
+{
+  "edition": "Hasbro Sverige 2012 (reboot)",
+  "suspects": ["Greger Grön", "Jack Senap", "Patricia Påfågel", "Viktor Plommon", "Kassandra Scharlakan", "Vivi Vit"],
+  "weapons": ["Skiftnyckel", "Ljusstake", "Dolk", "Pistol", "Blyrör", "Rep"],
+  "rooms": ["Badrummet", "Arbetsrummet", "Matsalen", "Spelrummet", "Garaget", "Sovrummet", "Vardagsrummet", "Köket", "Gården"]
+}
