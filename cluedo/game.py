@@ -35,6 +35,7 @@ class GameState:
         self._initial_hand: list[Card] = []
         self._next_suggestion_id = 1
         self.engine = ConstraintEngine(self.cards, players)
+        self._mutation_seq = 0
 
     # ---------------------------------------------------------- construction
 
@@ -69,6 +70,14 @@ class GameState:
         self.history = other.history
         self._initial_hand = other._initial_hand
         self._next_suggestion_id = other._next_suggestion_id
+        self._mutation_seq += 1
+
+    @property
+    def mutation_seq(self) -> int:
+        """Increments on every successful mutation (initial hand, new/edited/deleted/
+        undone suggestion). Callers that cache derived data (replay snapshots, graphs,
+        pattern analysis) key their cache off this instead of recomputing eagerly."""
+        return self._mutation_seq
 
     @property
     def user_owner_id(self) -> str:

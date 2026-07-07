@@ -29,7 +29,6 @@ class FactKind(Enum):
 class FactSource:
     origin: str  # "initial_hand" | "suggestion" | "derived"
     suggestion_id: Optional[str] = None
-    turn_number: Optional[int] = None
 
 
 @dataclass(frozen=True)
