@@ -3,7 +3,22 @@ import tkinter as tk
 import pytest
 
 from cluedo.config import load_bundled_edition
+from cluedo.gui import sidebar_state
 from cluedo.models import Player
+
+
+@pytest.fixture(autouse=True)
+def _reset_sidebar_state():
+    """cluedo.gui.sidebar_state is a plain module-level dict (deliberately,
+    for session-scoped-only persistence -- see its docstring), so it leaks
+    across tests within one pytest process unless reset. Autouse so every
+    test starts from the same "everything expanded, no Show All/Show Why
+    toggled" baseline regardless of test order."""
+    sidebar_state._expanded.clear()
+    sidebar_state._flags.clear()
+    yield
+    sidebar_state._expanded.clear()
+    sidebar_state._flags.clear()
 
 
 @pytest.fixture

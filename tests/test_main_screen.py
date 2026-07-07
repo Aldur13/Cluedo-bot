@@ -1,9 +1,11 @@
 """Integration test for cluedo/gui/main_screen.py's dashboard wiring.
 
 Guards against regressing to the old hand-rolled "Advisor"/"Envelope
-probabilities"/"Statistics" boxes main_screen.py used to build inline instead
-of importing cluedo.gui.panels -- and confirms Mystery Progress (previously
-entirely absent from the dashboard) is now wired in.
+probabilities"/"Statistics" boxes main_screen.py used to build inline, and
+confirms every panel-backed card (including the sidebar-redesign additions
+-- Recent Deductions, Timeline, Warnings, Game Review) is wired in exactly
+once, wrapped in the shared CollapsibleCard chrome rather than a bare
+`tk.LabelFrame`.
 
 Uses the session-scoped `root` fixture from tests/conftest.py, shared by
 every GUI test file, to avoid the documented Tcl-interpreter flake.
@@ -16,14 +18,16 @@ from cluedo.gui.theme import LIGHT, ThemeManager
 
 
 class _FakeApp:
-    """Minimal stand-in for the App controller -- toolbar buttons just need
-    zero-arg callables to bind to; we never click them in these tests."""
+    """Minimal stand-in for the App controller -- toolbar buttons and
+    panel-captured callbacks just need zero-arg callables to bind to; we
+    never click them in these tests."""
 
     def __init__(self, root, game_state):
         self.root = root
         self.theme_manager = ThemeManager(LIGHT)
         self.game_state = game_state
         self.refresh_main_screen = lambda: None
+        self._game_review_cache = None
         for name in (
             "open_suggestion_dialog", "undo", "open_timeline", "open_replay",
             "open_whatif", "open_graphs", "open_game_review", "save", "load", "open_export", "open_settings",
@@ -41,6 +45,20 @@ def _fresh_game(cfg, cards_by_name, three_players):
     return gs
 
 
+def _card_titles(widget) -> list[str]:
+    """Collects every CollapsibleCard header's `card_title_text` -- the
+    stable marker CollapsibleCard sets on its title Label, deliberately
+    independent of any text a card's own body content might coincidentally
+    contain (see cluedo.gui.widgets.CollapsibleCard)."""
+    found = []
+    title = getattr(widget, "card_title_text", None)
+    if title is not None:
+        found.append(title)
+    for child in widget.winfo_children():
+        found.extend(_card_titles(child))
+    return found
+
+
 def _label_frames_by_text(widget) -> list[str]:
     found = []
     if isinstance(widget, tk.LabelFrame):
@@ -50,7 +68,7 @@ def _label_frames_by_text(widget) -> list[str]:
     return found
 
 
-def test_dashboard_wires_all_four_panels_with_no_duplicate_or_orphaned_boxes(
+def test_dashboard_wires_every_card_exactly_once_with_no_bare_labelframes(
     root, cfg, cards_by_name, three_players
 ):
     gs = _fresh_game(cfg, cards_by_name, three_players)
@@ -58,18 +76,17 @@ def test_dashboard_wires_all_four_panels_with_no_duplicate_or_orphaned_boxes(
 
     frame = main_screen.build(root, app)
     try:
-        titles = _label_frames_by_text(frame)
+        titles = _card_titles(frame)
 
-        # New panel-backed sections, each present exactly once.
         for expected in (
-            "Best Suggestion", "Mystery Progress", "Envelope Probabilities", "AI Insights",
-            "Endgame", "Statistics",
+            "Best Suggestion", "Envelope Analysis", "Mystery Progress", "AI Insights",
+            "Recent Deductions", "Timeline", "Endgame", "Warnings", "Statistics", "Game Review",
         ):
-            assert titles.count(expected) == 1, f"expected exactly one {expected!r} box, found {titles.count(expected)}"
+            assert titles.count(expected) == 1, f"expected exactly one {expected!r} card, found {titles.count(expected)}"
 
-        # Old hand-rolled titles main_screen.py used to build inline directly
-        # (superseded by the panel modules above) must not reappear.
-        assert "Advisor" not in titles
+        # The old hand-rolled boxes (bare LabelFrame chrome) are gone --
+        # every sidebar section now goes through CollapsibleCard.
+        assert _label_frames_by_text(frame) == []
 
         # refresh_main_screen must have been rebound to the real refresh, not
         # left as the fake's no-op placeholder.
@@ -94,3 +111,44 @@ def test_dashboard_refresh_updates_panels_after_a_suggestion(root, cfg, cards_by
         app.refresh_main_screen()  # should not raise with a live, mutated game_state
     finally:
         frame.destroy()
+
+
+def test_dashboard_collapsed_card_stays_collapsed_across_a_screen_rebuild(root, cfg, cards_by_name, three_players):
+    """A theme change rebuilds the whole screen from scratch (App re-invokes
+    `_current_screen_show()` rather than live-recoloring -- see
+    ThemeManager's docstring). A card collapsed via cluedo.gui.sidebar_state
+    must come back collapsed after that kind of rebuild, proving the state
+    lives outside the (destroyed and recreated) widget tree."""
+    from cluedo.gui import sidebar_state
+
+    gs = _fresh_game(cfg, cards_by_name, three_players)
+    app = _FakeApp(root, gs)
+
+    sidebar_state.set_expanded("statistics", False)
+    frame = main_screen.build(root, app)
+    try:
+        statistics_body = _card_body_by_title(frame, "Statistics")
+        assert statistics_body is not None
+        # A collapsed CollapsibleCard's body frame has been pack_forget()'d,
+        # which clears its geometry manager -- more reliable in a test than
+        # winfo_ismapped(), which also depends on the Toplevel actually
+        # being viewable on screen.
+        assert statistics_body.winfo_manager() == ""
+    finally:
+        frame.destroy()
+
+
+def _card_body_by_title(widget, title):
+    header_title = getattr(widget, "card_title_text", None)
+    if header_title == title:
+        # `widget` is the title Label; its CollapsibleCard body is the
+        # sibling `tk.Frame` packed after the header inside the same outer
+        # card frame (see CollapsibleCard.__init__: header then self.body).
+        card_frame = widget.master.master  # title -> header -> card frame
+        children = card_frame.winfo_children()
+        return children[1] if len(children) > 1 else None
+    for child in widget.winfo_children():
+        found = _card_body_by_title(child, title)
+        if found is not None:
+            return found
+    return None

@@ -7,23 +7,31 @@ that threshold `AdvisorCandidate.expected_info_gain` is `None` and the
 advisor falls back to a cheap uncertainty ranking. This panel never shows a
 bogus "None%" -- when the gain is unavailable it says so plainly and omits
 the star bar entirely, per the plan's product-honesty requirement.
+
+"Show Why" reveals `AdvisorCandidate.rationale` -- already computed by the
+advisor, just not previously surfaced in this panel. No new metric is
+invented for this: `expected_info_gain` is the one real number the advisor
+produces, so it is the only confidence figure shown.
 """
 from __future__ import annotations
 
 import tkinter as tk
 
+from cluedo.gui import sidebar_state
+from cluedo.gui.widgets import CollapsibleCard
+
 _STAR_COUNT = 5
 _FILLED_STAR = "★"  # ★
 _EMPTY_STAR = "☆"  # ☆
+_CARD_KEY = "best_suggestion"
+_SHOW_WHY_KEY = "best_suggestion.show_why"
 
 
-def build(parent, theme) -> tk.Frame:
+def build(parent, theme, app) -> tk.Frame:
     frame = tk.Frame(parent, bg=theme.bg)
-    box = tk.LabelFrame(frame, text="Best Suggestion", font=theme.body_font(11), bg=theme.panel_bg)
-    box.pack(fill="x")
-
-    body = tk.Frame(box, bg=theme.panel_bg)
-    body.pack(fill="x", padx=8, pady=8)
+    card = CollapsibleCard(frame, theme, title="Best Suggestion", key=_CARD_KEY)
+    card.pack(fill="x")
+    body = card.body
 
     solved_label = tk.Label(
         body, text="", justify="left", wraplength=290, bg=theme.solved_bg, fg=theme.solved_text,
@@ -46,13 +54,36 @@ def build(parent, theme) -> tk.Frame:
         confidence_frame, text="", bg=theme.panel_bg, fg=theme.muted_text, font=theme.body_font(9)
     )
 
+    show_why_button = tk.Button(body, text="Show Why", font=theme.body_font(8))
     rationale_label = tk.Label(
         body, text="", justify="left", wraplength=290, bg=theme.panel_bg, fg=theme.text, font=theme.body_font(9),
     )
 
+    state = {"rationale": ""}
+
     def _clear():
-        for widget in (solved_label, empty_label, triple_label, confidence_frame, rationale_label):
+        for widget in (solved_label, empty_label, triple_label, confidence_frame, show_why_button, rationale_label):
             widget.pack_forget()
+
+    def _apply_show_why():
+        expanded = sidebar_state.get_flag(_SHOW_WHY_KEY)
+        show_why_button.config(text="Hide Why" if expanded else "Show Why")
+        if expanded:
+            # Only set real text while actually shown -- a hidden
+            # (pack_forget'd) Label is still present in the widget tree, so
+            # leaving real text on it would let a naive text-walk over the
+            # tree "see" content the user can't.
+            rationale_label.config(text=state["rationale"])
+            rationale_label.pack(anchor="w")
+        else:
+            rationale_label.config(text="")
+            rationale_label.pack_forget()
+
+    def _on_toggle_why():
+        sidebar_state.toggle_flag(_SHOW_WHY_KEY)
+        _apply_show_why()
+
+    show_why_button.config(command=_on_toggle_why)
 
     def refresh(game_state):
         _clear()
@@ -91,8 +122,9 @@ def build(parent, theme) -> tk.Frame:
         confidence_text.pack(anchor="w")
         confidence_frame.pack(fill="x", pady=(0, 6))
 
-        rationale_label.config(text=best.rationale)
-        rationale_label.pack(anchor="w")
+        state["rationale"] = best.rationale
+        show_why_button.pack(anchor="w", pady=(0, 4))
+        _apply_show_why()
 
     frame.refresh = refresh
     refresh(None)

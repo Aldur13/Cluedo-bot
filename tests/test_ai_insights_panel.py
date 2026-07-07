@@ -16,6 +16,11 @@ from cluedo.gui.theme import LIGHT
 from cluedo.models import SuggestionResponse
 
 
+class _FakeApp:
+    def __init__(self, root):
+        self.root = root
+
+
 def _fresh_game(cfg, cards_by_name, three_players):
     gs = GameState(cfg, three_players, user_seat=0)
     hand = ["Miss Scarlett", "Colonel Mustard", "Mrs. White", "Candlestick", "Knife", "Lead Pipe"]
@@ -36,7 +41,7 @@ def _all_text(widget) -> str:
 
 def test_disclaimer_is_always_shown(root, cfg, cards_by_name, three_players):
     gs = _fresh_game(cfg, cards_by_name, three_players)
-    frame = ai_insights_panel.build(root, LIGHT)
+    frame = ai_insights_panel.build(root, LIGHT, _FakeApp(root))
     try:
         frame.refresh(gs)
         assert "advisory" in _all_text(frame).lower()
@@ -46,7 +51,7 @@ def test_disclaimer_is_always_shown(root, cfg, cards_by_name, three_players):
 
 def test_opponents_below_min_suggestions_show_insufficient_data(root, cfg, cards_by_name, three_players):
     gs = _fresh_game(cfg, cards_by_name, three_players)
-    frame = ai_insights_panel.build(root, LIGHT)
+    frame = ai_insights_panel.build(root, LIGHT, _FakeApp(root))
     try:
         frame.refresh(gs)
         text = _all_text(frame)
@@ -80,7 +85,7 @@ def test_qualifying_player_shows_a_strategy_label(root, cfg, cards_by_name, thre
             [SuggestionResponse(2, "no_show")],
         )
 
-    frame = ai_insights_panel.build(root, LIGHT)
+    frame = ai_insights_panel.build(root, LIGHT, _FakeApp(root))
     try:
         frame.refresh(gs)
         text = _all_text(frame)
@@ -96,7 +101,7 @@ def test_no_solved_fact_color_used_anywhere_in_panel(root, cfg, cards_by_name, t
     # would visually claim certainty the underlying rule-based guess doesn't
     # have.
     gs = _fresh_game(cfg, cards_by_name, three_players)
-    frame = ai_insights_panel.build(root, LIGHT)
+    frame = ai_insights_panel.build(root, LIGHT, _FakeApp(root))
     try:
         frame.refresh(gs)
 
@@ -116,7 +121,7 @@ def test_no_solved_fact_color_used_anywhere_in_panel(root, cfg, cards_by_name, t
 
 
 def test_no_game_in_progress(root):
-    frame = ai_insights_panel.build(root, LIGHT)
+    frame = ai_insights_panel.build(root, LIGHT, _FakeApp(root))
     try:
         frame.refresh(None)
         assert "No game in progress." in _all_text(frame)

@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from cluedo.gui.widgets import CollapsibleCard
 
-def build(parent, theme) -> tk.Frame:
+
+def build(parent, theme, app) -> tk.Frame:
     frame = tk.Frame(parent, bg=theme.bg)
-    box = tk.LabelFrame(frame, text="Statistics", font=theme.body_font(11), bg=theme.panel_bg)
-    box.pack(fill="x")
-
-    grid = tk.Frame(box, bg=theme.panel_bg)
-    grid.pack(fill="x", padx=8, pady=8)
+    card = CollapsibleCard(frame, theme, title="Statistics", key="statistics")
+    card.pack(fill="x")
+    grid = card.body
 
     _ROWS = (
         "Suggestions logged",

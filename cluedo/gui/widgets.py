@@ -1,6 +1,7 @@
 """Small reusable Tkinter helpers."""
 import tkinter as tk
 
+from cluedo.gui import sidebar_state
 from cluedo.gui.theme import LIGHT
 
 
@@ -78,3 +79,68 @@ class Tooltip:
         if self.tip is not None:
             self.tip.destroy()
             self.tip = None
+
+
+class CollapsibleCard:
+    """A titled card with a clickable header that shows/hides its body.
+    Expand/collapse state is remembered per `key` for the process session
+    (see cluedo.gui.sidebar_state) -- collapsing a card and then refreshing
+    the dashboard (e.g. after logging a suggestion) does not silently
+    re-expand it.
+
+    `.frame` is the outer `tk.Frame` a caller packs/grids like any other
+    widget; `.body` is where the card's own content goes. The header
+    `tk.Label` carries a `card_title_text` attribute (the exact `title`
+    string) so structural tests can find real card headers without relying
+    on text matching against arbitrary body content.
+    """
+
+    def __init__(self, parent, theme, title: str, key: str, *, fg=None, disclaimer: str | None = None):
+        self.key = key
+        self.theme = theme
+
+        self.frame = tk.Frame(parent, bg=theme.panel_bg, highlightbackground=theme.unknown, highlightthickness=1)
+
+        header = tk.Frame(self.frame, bg=theme.panel_bg, cursor="hand2")
+        header.pack(fill="x")
+
+        self._toggle_label = tk.Label(
+            header, text="", bg=theme.panel_bg, fg=fg or theme.text, font=theme.body_font(11, "bold"), width=2,
+        )
+        self._toggle_label.pack(side="left", padx=(6, 0), pady=6)
+
+        self.title_label = tk.Label(
+            header, text=title, bg=theme.panel_bg, fg=fg or theme.text, font=theme.body_font(11, "bold"),
+            anchor="w",
+        )
+        self.title_label.card_title_text = title
+        self.title_label.pack(side="left", fill="x", expand=True, padx=(2, 6), pady=6)
+
+        for widget in (header, self._toggle_label, self.title_label):
+            widget.bind("<Button-1>", lambda _e: self.toggle())
+
+        self.body = tk.Frame(self.frame, bg=theme.panel_bg)
+        if disclaimer:
+            tk.Label(
+                self.body, text=disclaimer, bg=theme.panel_bg, fg=theme.muted_text, font=theme.body_font(8),
+                wraplength=280, justify="left",
+            ).pack(anchor="w", padx=8, pady=(0, 4))
+
+        self._expanded = True
+        self._apply_expanded(sidebar_state.get_expanded(key, True))
+
+    def toggle(self) -> None:
+        self._apply_expanded(not self._expanded)
+        sidebar_state.set_expanded(self.key, self._expanded)
+
+    def _apply_expanded(self, expanded: bool) -> None:
+        self._expanded = expanded
+        if expanded:
+            self.body.pack(fill="x", padx=8, pady=(0, 8))
+            self._toggle_label.config(text="▾")  # ▾
+        else:
+            self.body.pack_forget()
+            self._toggle_label.config(text="▸")  # ▸
+
+    def pack(self, **kwargs):
+        self.frame.pack(**kwargs)
