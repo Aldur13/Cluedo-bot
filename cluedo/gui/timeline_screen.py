@@ -1,16 +1,17 @@
 import tkinter as tk
 
-from cluedo.gui import suggestion_dialog, theme
+from cluedo.gui import suggestion_dialog
 
 
 def open_timeline(app):
     gs = app.game_state
+    theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title("Timeline")
     win.geometry("560x420")
-    win.configure(bg=theme.BG)
+    win.configure(bg=theme.bg)
 
-    tk.Label(win, text="Suggestion history", font=theme.heading_font(13), bg=theme.BG).pack(
+    tk.Label(win, text="Suggestion history", font=theme.heading_font(13), bg=theme.bg).pack(
         anchor="w", padx=12, pady=(12, 6)
     )
 
@@ -51,7 +52,7 @@ def open_timeline(app):
         app.after_mutation()
         refresh()
 
-    btns = tk.Frame(win, bg=theme.BG)
+    btns = tk.Frame(win, bg=theme.bg)
     btns.pack(pady=(0, 10))
     tk.Button(btns, text="Edit selected", command=edit_selected, font=theme.body_font(10)).pack(
         side="left", padx=6

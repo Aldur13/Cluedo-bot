@@ -11,10 +11,10 @@ from cluedo.gui import (
     replay_screen,
     setup_screen,
     suggestion_dialog,
-    theme,
     timeline_screen,
     whatif_screen,
 )
+from cluedo.gui.theme import LIGHT, ThemeManager
 
 
 class App:
@@ -23,11 +23,15 @@ class App:
         self.root.title("Cluedo Deduction Assistant")
         self.root.geometry("1150x760")
         self.root.minsize(950, 620)
-        self.root.configure(bg=theme.BG)
+
+        self.theme_manager = ThemeManager(LIGHT)
+        self.theme_manager.subscribe(self._on_theme_changed)
+        self.root.configure(bg=self.theme_manager.current.bg)
 
         self.game_state: GameState | None = None
         self.pending_config = None
         self._current_frame = None
+        self._current_screen_show = lambda: None
         self.refresh_main_screen = lambda: None
 
         self._bind_shortcuts()
@@ -42,23 +46,35 @@ class App:
         self._current_frame = frame
         frame.pack(fill="both", expand=True)
 
+    def _on_theme_changed(self, theme):
+        self.root.configure(bg=theme.bg)
+        self._current_screen_show()
+
     def show_edition_select(self):
-        self._swap(edition_select_screen.build(self.root, self._on_edition_selected))
+        self._current_screen_show = self.show_edition_select
+        self._swap(edition_select_screen.build(self.root, self.theme_manager.current, self._on_edition_selected))
 
     def _on_edition_selected(self, config):
         self.pending_config = config
-        self._swap(setup_screen.build(self.root, config, self._on_setup_confirmed))
+        self._current_screen_show = lambda: self._on_edition_selected(config)
+        self._swap(setup_screen.build(self.root, self.theme_manager.current, config, self._on_setup_confirmed))
 
     def _on_setup_confirmed(self, players, user_seat):
         self.game_state = GameState(self.pending_config, players, user_seat)
         expected = players[user_seat].hand_size
-        self._swap(hand_screen.build(self.root, self.pending_config, expected, self._on_hand_confirmed))
+        self._current_screen_show = lambda: self._on_setup_confirmed(players, user_seat)
+        self._swap(
+            hand_screen.build(
+                self.root, self.theme_manager.current, self.pending_config, expected, self._on_hand_confirmed
+            )
+        )
 
     def _on_hand_confirmed(self, cards):
         self.game_state.set_user_hand(cards)
         self.show_main_screen()
 
     def show_main_screen(self):
+        self._current_screen_show = self.show_main_screen
         self._swap(main_screen.build(self.root, self))
 
     # -------------------------------------------------------------- actions
