@@ -29,7 +29,7 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --onefile --windowed --name CluedoAssistant --add-data "cluedo/data;cluedo/data" main.py
+          pyinstaller CluedoAssistant.spec
 
       - name: Rename executable to include version
         shell: bash
