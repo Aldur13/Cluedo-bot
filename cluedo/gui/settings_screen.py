@@ -5,6 +5,7 @@ table already supports this; this is just the first UI that surfaces it).
 """
 import tkinter as tk
 
+from cluedo import __version__
 from cluedo.gui.theme import BUILTIN_THEMES
 
 
@@ -12,7 +13,7 @@ def open_settings(app):
     theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title("Settings")
-    win.geometry("360x320")
+    win.geometry("360x360")
     win.configure(bg=theme.bg)
 
     tk.Label(win, text="Theme", font=theme.heading_font(13), bg=theme.bg, fg=theme.text).pack(
@@ -66,4 +67,8 @@ def open_settings(app):
     )
     reset_button.pack(anchor="w", padx=20, pady=(4, 14))
 
+    tk.Label(
+        win, text=f"Cluedo Deduction Assistant v{__version__}", font=theme.body_font(8), fg=theme.muted_text,
+        bg=theme.bg,
+    ).pack(side="bottom", pady=(0, 2))
     tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

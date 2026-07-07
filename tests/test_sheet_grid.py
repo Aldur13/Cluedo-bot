@@ -43,7 +43,7 @@ class _FakeApp:
     def __init__(self):
         for name in (
             "open_suggestion_dialog", "undo", "open_timeline", "open_replay",
-            "open_whatif", "open_graphs", "save", "load", "open_export", "open_settings",
+            "open_whatif", "open_graphs", "open_game_review", "save", "load", "open_export", "open_settings",
         ):
             setattr(self, name, lambda: None)
 
@@ -195,11 +195,11 @@ def test_build_toolbar_renders_without_error(root, theme):
     try:
         assert isinstance(toolbar, tk.Frame)
         buttons = [w for w in toolbar.winfo_children() if isinstance(w, tk.Button)]
-        assert len(buttons) == 10
+        assert len(buttons) == 11
         labels = {b.cget("text") for b in buttons}
         assert labels == {
             "Log Suggestion (Ctrl+N)", "Undo (Ctrl+Z)", "Timeline (Ctrl+E)", "Replay (Ctrl+R)",
-            "What-If", "Trends", "Save (Ctrl+S)", "Load (Ctrl+O)", "Export", "Settings",
+            "What-If", "Trends", "Review", "Save (Ctrl+S)", "Load (Ctrl+O)", "Export", "Settings",
         }
     finally:
         toolbar.destroy()

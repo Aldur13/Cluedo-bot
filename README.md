@@ -30,6 +30,18 @@ outcomes before you commit to them at the table.
 - Autosave after every move, with crash recovery on next launch.
 - Export the detective sheet to PNG, the timeline to PDF, the full game to
   JSON, or statistics to CSV.
+- AI Insights and Endgame panels give rule-based, clearly-labeled-as-advisory
+  reads on player behavior and accusation readiness — never presented as
+  solver-proven fact.
+- Trends charts and a local, opt-out-able cross-game history power richer
+  analysis across games, all on-device.
+- **Game Review**: an automatic, evidence-based post-game report the moment
+  a mystery is solved — difficulty, a letter grade, efficiency versus the
+  earliest logically-solvable turn, the game's key turning point and largest
+  deduction, missed opportunities the solver can actually prove, and a
+  clickable timeline into Replay. Exportable as PDF, HTML, Markdown, or
+  JSON. See [docs/game_review_explained.md](docs/game_review_explained.md)
+  for how every number is calculated.
 
 ## Quickstart
 
