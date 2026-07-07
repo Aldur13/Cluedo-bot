@@ -2,7 +2,11 @@ import pytest
 
 from cluedo.game import GameState
 from cluedo.models import ENVELOPE, CardType, Player
-from cluedo.mystery_progress import compute_mystery_progress
+from cluedo.mystery_progress import (
+    _MAX_AMBIGUOUS_FOR_SOLVE_CHANCE,
+    _chance_of_solving_next_turn,
+    compute_mystery_progress,
+)
 
 
 def test_fresh_game_low_known_cards_and_valid_chance(cfg, cards_by_name, three_players):
@@ -94,3 +98,55 @@ def test_one_suggestion_from_solved_has_high_chance(cfg):
 
     assert progress.chance_of_solving_next_turn is not None
     assert progress.chance_of_solving_next_turn == pytest.approx(1.0, abs=1e-6)
+
+
+def test_many_ambiguous_cards_returns_none_chance_instead_of_computing(cfg, cards_by_name):
+    # 6 players over a 21-card deck (3-card envelope) leaves 18 cards split
+    # 3 each -- the user's own 3 known cards still leave 18 ambiguous, well
+    # past _MAX_AMBIGUOUS_FOR_SOLVE_CHANCE (15). Computing an exact chance
+    # here would mean up to 3 candidates x 6 responders of full-history
+    # whatif replays for one dashboard readout, mirroring the exact cost
+    # cliff advisor.py already guards against -- so this should short-circuit
+    # to None rather than pay that cost (or silently return a bogus 0.0).
+    players = [Player(f"P{i}", i, 3) for i in range(6)]
+    gs = GameState(cfg, players, user_seat=0)
+    hand = [c for c in cfg.all_cards()][:3]
+    gs.set_user_hand(hand)
+
+    ci = gs.engine.counting_input()
+    assert len(ci.ambiguous) > _MAX_AMBIGUOUS_FOR_SOLVE_CHANCE
+
+    assert _chance_of_solving_next_turn(gs) is None
+    progress = compute_mystery_progress(gs)
+    assert progress.chance_of_solving_next_turn is None
+
+
+def test_unexpected_exception_is_not_silently_swallowed(cfg, monkeypatch):
+    # _p_candidate_solves used to wrap its calls in a bare `except Exception`,
+    # which would silently turn any real bug (e.g. a programming error deep in
+    # probability_of_response_outcome) into a quiet "contributes 0" instead of
+    # surfacing it. Now only the two specific, expected exceptions
+    # (TooManyAmbiguousCardsError, ContradictionError) are caught -- anything
+    # else must propagate.
+    import cluedo.mystery_progress as mp
+
+    def _boom(*args, **kwargs):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(mp, "probability_of_response_outcome", _boom)
+
+    from cluedo.models import Card
+
+    suspect, weapon, room = (
+        Card(cfg.suspects[0], CardType.SUSPECT),
+        Card(cfg.weapons[0], CardType.WEAPON),
+        Card(cfg.rooms[0], CardType.ROOM),
+    )
+    hand = [c for c in cfg.all_cards() if c not in (suspect, weapon, room)][:6]
+
+    players = [Player("Alice", 0, len(hand)), Player("Bob", 1, 6), Player("Carol", 2, 6)]
+    gs = GameState(cfg, players, user_seat=0)
+    gs.set_user_hand(hand)
+
+    with pytest.raises(ValueError):
+        mp._p_candidate_solves(gs, suspect, weapon, room)
