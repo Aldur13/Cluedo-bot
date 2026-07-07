@@ -5,23 +5,29 @@ from cluedo.gui.panels import (
     best_suggestion_panel,
     endgame_panel,
     envelope_probabilities_panel,
+    game_review_card_panel,
     game_statistics_panel,
     mystery_progress_panel,
+    recent_deductions_panel,
+    timeline_panel,
+    warnings_panel,
 )
+from cluedo.gui.scrollable_frame import build_scrollable_frame
 from cluedo.gui.sheet_grid import render_sheet_grid
 from cluedo.gui.toolbar import build_toolbar
 
-# Dashboard side-panel order, top to bottom -- matches the named sections in
-# the product spec (Best Suggestion, Mystery Progress, Envelope
-# Probabilities, AI Insights, Statistics), plus Endgame slotted alongside the
-# other advisory (non-solver-fact) panels.
+# Dashboard side-panel ("card") order, top to bottom.
 _SIDE_PANEL_MODULES = (
     best_suggestion_panel,
-    mystery_progress_panel,
     envelope_probabilities_panel,
+    mystery_progress_panel,
     ai_insights_panel,
+    recent_deductions_panel,
+    timeline_panel,
     endgame_panel,
+    warnings_panel,
     game_statistics_panel,
+    game_review_card_panel,
 )
 
 
@@ -49,13 +55,16 @@ def build(parent, app):
     sheet_container_holder = tk.Frame(body, bg=theme.bg)
     sheet_container_holder.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
-    side_panel = tk.Frame(body, bg=theme.bg, width=320)
-    side_panel.pack(side="left", fill="y")
-    side_panel.pack_propagate(False)
+    side_panel_holder = tk.Frame(body, bg=theme.bg, width=340)
+    side_panel_holder.pack(side="left", fill="y")
+    side_panel_holder.pack_propagate(False)
+
+    side_panel_outer, side_panel = build_scrollable_frame(side_panel_holder, theme)
+    side_panel_outer.pack(fill="both", expand=True)
 
     panels = []
     for module in _SIDE_PANEL_MODULES:
-        panel_frame = module.build(side_panel, theme)
+        panel_frame = module.build(side_panel, theme, app)
         panel_frame.pack(fill="x", pady=(0, 8))
         panels.append(panel_frame)
 

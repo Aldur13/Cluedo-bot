@@ -17,6 +17,7 @@ import tkinter as tk
 
 from cluedo.analysis.patterns import analyze_player_patterns
 from cluedo.analysis.strategy import MIN_SUGGESTIONS_FOR_CLASSIFICATION, classify_strategy
+from cluedo.gui.widgets import CollapsibleCard
 
 _STRATEGY_LABELS = {
     "room_hunter": "Room Hunter",
@@ -30,21 +31,14 @@ _STRATEGY_LABELS = {
 }
 
 
-def build(parent, theme) -> tk.Frame:
+def build(parent, theme, app) -> tk.Frame:
     frame = tk.Frame(parent, bg=theme.bg)
-    box = tk.LabelFrame(
-        frame, text="AI Insights", font=theme.body_font(11), bg=theme.panel_bg, fg=theme.accent_dark,
+    card = CollapsibleCard(
+        frame, theme, title="AI Insights", key="ai_insights", fg=theme.accent_dark,
+        disclaimer="Advisory only -- behavioral guesses, never certain.",
     )
-    box.pack(fill="x")
-
-    body = tk.Frame(box, bg=theme.panel_bg)
-    body.pack(fill="x", padx=8, pady=8)
-
-    tk.Label(
-        body, text="Advisory only -- behavioral guesses, never certain.",
-        bg=theme.panel_bg, fg=theme.muted_text, font=theme.body_font(8, "normal"),
-        wraplength=280, justify="left",
-    ).pack(anchor="w", pady=(0, 4))
+    card.pack(fill="x")
+    body = card.body
 
     rows_frame = tk.Frame(body, bg=theme.panel_bg)
     rows_frame.pack(fill="x")

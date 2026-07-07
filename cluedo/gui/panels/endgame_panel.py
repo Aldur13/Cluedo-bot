@@ -9,17 +9,14 @@ from __future__ import annotations
 import tkinter as tk
 
 from cluedo.analysis.endgame import suggest_accusation_readiness
+from cluedo.gui.widgets import CollapsibleCard
 
 
-def build(parent, theme) -> tk.Frame:
+def build(parent, theme, app) -> tk.Frame:
     frame = tk.Frame(parent, bg=theme.bg)
-    box = tk.LabelFrame(
-        frame, text="Endgame", font=theme.body_font(11), bg=theme.panel_bg, fg=theme.accent_dark,
-    )
-    box.pack(fill="x")
-
-    body = tk.Frame(box, bg=theme.panel_bg)
-    body.pack(fill="x", padx=8, pady=8)
+    card = CollapsibleCard(frame, theme, title="Endgame", key="endgame", fg=theme.accent_dark)
+    card.pack(fill="x")
+    body = card.body
 
     message_label = tk.Label(
         body, text="", justify="left", wraplength=280, bg=theme.panel_bg, font=theme.body_font(9),

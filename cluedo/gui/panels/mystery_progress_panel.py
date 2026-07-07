@@ -10,19 +10,18 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from cluedo.gui.widgets import CollapsibleCard
 from cluedo.mystery_progress import compute_mystery_progress
 
 _BAR_WIDTH = 260
 _BAR_HEIGHT = 18
 
 
-def build(parent, theme) -> tk.Frame:
+def build(parent, theme, app) -> tk.Frame:
     frame = tk.Frame(parent, bg=theme.bg)
-    box = tk.LabelFrame(frame, text="Mystery Progress", font=theme.body_font(11), bg=theme.panel_bg)
-    box.pack(fill="x")
-
-    body = tk.Frame(box, bg=theme.panel_bg)
-    body.pack(fill="x", padx=8, pady=8)
+    card = CollapsibleCard(frame, theme, title="Mystery Progress", key="mystery_progress")
+    card.pack(fill="x")
+    body = card.body
 
     bar_canvas = tk.Canvas(
         body, width=_BAR_WIDTH, height=_BAR_HEIGHT, bg=theme.unknown, highlightthickness=0

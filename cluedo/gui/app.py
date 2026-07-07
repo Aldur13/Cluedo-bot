@@ -46,6 +46,7 @@ class App:
         self._game_end_recorded = False
         self._game_start_wall_clock: float | None = None
         self._game_review_shown = False
+        self._game_review_cache = None
 
         self._bind_shortcuts()
         if not self._maybe_offer_recovery():
@@ -103,6 +104,7 @@ class App:
         self._game_end_recorded = False
         self._game_start_wall_clock = time.monotonic()
         self._game_review_shown = False
+        self._game_review_cache = None
         self.player_store.record_game_start(
             self._game_id, self.game_state.config.edition, self.game_state.players
         )
@@ -146,8 +148,12 @@ class App:
     def after_mutation(self):
         self._autosave()
         self._sync_player_store()
-        self.refresh_main_screen()
+        # Compute/cache the Game Review (and auto-open its popup) *before*
+        # refreshing the sidebar, so the Game Review card can show the
+        # summary on the very turn that solves the game instead of lagging
+        # one refresh behind.
         self._maybe_auto_open_review()
+        self.refresh_main_screen()
 
     def open_suggestion_dialog(self):
         if self.game_state:
@@ -179,13 +185,17 @@ class App:
     def _maybe_auto_open_review(self):
         """After every completed game, automatically show the Game Review --
         once per game (guarded the same way _game_end_recorded guards the
-        player_store write), not on every subsequent refresh."""
+        player_store write), not on every subsequent refresh. Caches the
+        computed GameReview on `self._game_review_cache` so the sidebar's
+        Game Review card can display a summary without recomputing this
+        expensive, solver-derived report a second time."""
         if self.game_state is None or self._game_review_shown or not self.game_state.is_solved():
             return
         self._game_review_shown = True
         from cluedo.analysis.game_review import compute_game_review
 
         review = compute_game_review(self.game_state, time_played_seconds=self._game_review_time_played_seconds())
+        self._game_review_cache = review
         game_review_screen.open_game_review(self, review=review)
 
     def open_explain(self, card):

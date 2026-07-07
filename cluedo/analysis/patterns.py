@@ -79,18 +79,19 @@ def _favorite(card_frequency: dict[Card, int], card_type: CardType) -> Optional[
     return max(candidates, key=lambda pair: pair[1])[0]
 
 
-def _redundant_suggestion_count(game_state: GameState, seat: int) -> int:
-    """Counts suggestions by `seat` where, AT THE TIME the suggestion was
-    made (i.e. using the replay snapshot for the history *prefix before*
-    that suggestion, never the live/final state), at least one of the three
-    suggested cards was already confirmed owned by someone other than the
-    suggester. This is the module's one hard correctness requirement: using
-    the final game_state here instead would make suggestions look redundant
-    only because of information learned afterward.
+def find_redundant_suggestions(game_state: GameState, seat: int) -> list[int]:
+    """Turn indices (into `game_state.history`) of suggestions by `seat`
+    where, AT THE TIME the suggestion was made (i.e. using the replay
+    snapshot for the history *prefix before* that suggestion, never the
+    live/final state), at least one of the three suggested cards was
+    already confirmed owned by someone other than the suggester. This is
+    the module's one hard correctness requirement: using the final
+    game_state here instead would make suggestions look redundant only
+    because of information learned afterward.
     """
     snapshots = build_replay_snapshots(game_state)
     own_owner_id = seat_id(seat)
-    count = 0
+    redundant: list[int] = []
     for index, suggestion in enumerate(game_state.history):
         if suggestion.suggester_seat != seat:
             continue
@@ -100,9 +101,13 @@ def _redundant_suggestion_count(game_state: GameState, seat: int) -> int:
         for card in suggestion.triple:
             owner = prior_state.engine.confirmed.get(card)
             if owner is not None and owner != own_owner_id:
-                count += 1
+                redundant.append(index)
                 break
-    return count
+    return redundant
+
+
+def _redundant_suggestion_count(game_state: GameState, seat: int) -> int:
+    return len(find_redundant_suggestions(game_state, seat))
 
 
 def analyze_player_patterns(game_state: GameState, seat: int) -> PlayerPatternStats:
