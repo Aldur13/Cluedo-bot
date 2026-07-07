@@ -1,8 +1,28 @@
 import tkinter as tk
 
-from cluedo.gui.widgets import Tooltip
-from cluedo.models import CardType, ENVELOPE
-from cluedo.probability import TooManyAmbiguousCardsError
+from cluedo.gui.panels import (
+    ai_insights_panel,
+    best_suggestion_panel,
+    endgame_panel,
+    envelope_probabilities_panel,
+    game_statistics_panel,
+    mystery_progress_panel,
+)
+from cluedo.gui.sheet_grid import render_sheet_grid
+from cluedo.gui.toolbar import build_toolbar
+
+# Dashboard side-panel order, top to bottom -- matches the named sections in
+# the product spec (Best Suggestion, Mystery Progress, Envelope
+# Probabilities, AI Insights, Statistics), plus Endgame slotted alongside the
+# other advisory (non-solver-fact) panels.
+_SIDE_PANEL_MODULES = (
+    best_suggestion_panel,
+    mystery_progress_panel,
+    envelope_probabilities_panel,
+    ai_insights_panel,
+    endgame_panel,
+    game_statistics_panel,
+)
 
 
 def build(parent, app):
@@ -20,171 +40,43 @@ def build(parent, app):
         header, text="", font=theme.heading_font(13), bg=theme.solved_bg, fg=theme.solved_text, padx=10, pady=4
     )
 
-    toolbar = tk.Frame(frame, bg=theme.bg)
+    toolbar = build_toolbar(frame, app, theme)
     toolbar.pack(fill="x", padx=12, pady=(0, 8))
-
-    def make_button(text, command):
-        tk.Button(toolbar, text=text, command=command, font=theme.body_font(10), padx=8, pady=4).pack(
-            side="left", padx=3
-        )
-
-    make_button("Log Suggestion (Ctrl+N)", app.open_suggestion_dialog)
-    make_button("Undo (Ctrl+Z)", app.undo)
-    make_button("Timeline (Ctrl+E)", app.open_timeline)
-    make_button("Replay (Ctrl+R)", app.open_replay)
-    make_button("What-If", app.open_whatif)
-    make_button("Save (Ctrl+S)", app.save)
-    make_button("Load (Ctrl+O)", app.load)
-    make_button("Export", app.open_export)
 
     body = tk.Frame(frame, bg=theme.bg)
     body.pack(fill="both", expand=True, padx=12, pady=4)
 
-    sheet_container = tk.Frame(body, bg=theme.panel_bg, bd=1, relief="solid")
-    sheet_container.pack(side="left", fill="both", expand=True, padx=(0, 8))
-
-    canvas = tk.Canvas(sheet_container, bg=theme.panel_bg, highlightthickness=0)
-    vscroll = tk.Scrollbar(sheet_container, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=vscroll.set)
-    vscroll.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
-    sheet_frame = tk.Frame(canvas, bg=theme.panel_bg)
-    canvas.create_window((0, 0), window=sheet_frame, anchor="nw")
-    sheet_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    sheet_container_holder = tk.Frame(body, bg=theme.bg)
+    sheet_container_holder.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
     side_panel = tk.Frame(body, bg=theme.bg, width=320)
     side_panel.pack(side="left", fill="y")
     side_panel.pack_propagate(False)
 
-    advisor_box = tk.LabelFrame(side_panel, text="Advisor", font=theme.body_font(11), bg=theme.panel_bg)
-    advisor_box.pack(fill="x", pady=(0, 8))
-    advisor_label = tk.Label(
-        advisor_box, text="", justify="left", wraplength=290, bg=theme.panel_bg, font=theme.body_font(10)
-    )
-    advisor_label.pack(padx=8, pady=8, anchor="w")
-
-    prob_box = tk.LabelFrame(side_panel, text="Envelope probabilities", font=theme.body_font(11), bg=theme.panel_bg)
-    prob_box.pack(fill="x", pady=(0, 8))
-    prob_inner = tk.Frame(prob_box, bg=theme.panel_bg)
-    prob_inner.pack(fill="x", padx=8, pady=8)
-
-    stats_box = tk.LabelFrame(side_panel, text="Statistics", font=theme.body_font(11), bg=theme.panel_bg)
-    stats_box.pack(fill="x")
-    stats_label = tk.Label(stats_box, text="", justify="left", bg=theme.panel_bg, font=theme.body_font(9))
-    stats_label.pack(padx=8, pady=8, anchor="w")
+    panels = []
+    for module in _SIDE_PANEL_MODULES:
+        panel_frame = module.build(side_panel, theme)
+        panel_frame.pack(fill="x", pady=(0, 8))
+        panels.append(panel_frame)
 
     def refresh():
         gs = app.game_state
         if gs is None:
             return
-        for child in sheet_frame.winfo_children():
+        for child in sheet_container_holder.winfo_children():
             child.destroy()
-
-        sheet = gs.detective_sheet()
-        owners = [p.owner_id for p in gs.players] + [ENVELOPE]
-        owner_labels = [p.name for p in gs.players] + ["Envelope"]
-
-        tk.Label(sheet_frame, text="", bg=theme.panel_bg, width=18).grid(row=0, column=0)
-        for c, label in enumerate(owner_labels, start=1):
-            tk.Label(sheet_frame, text=label, font=theme.body_font(9, "bold"), bg=theme.panel_bg).grid(
-                row=0, column=c, padx=2, pady=2
-            )
-
-        row = 1
-        for card_type in (CardType.SUSPECT, CardType.WEAPON, CardType.ROOM):
-            tk.Label(
-                sheet_frame, text=card_type.value.title(), font=theme.body_font(10, "bold"),
-                bg=theme.panel_bg, fg=theme.accent_dark,
-            ).grid(row=row, column=0, columnspan=len(owners) + 1, sticky="w", pady=(10, 2), padx=4)
-            row += 1
-            for card in gs.cards:
-                if card.type != card_type:
-                    continue
-                info = sheet[card]
-                tk.Label(
-                    sheet_frame, text=card.name, font=theme.body_font(9), bg=theme.panel_bg, anchor="w", width=18
-                ).grid(row=row, column=0, sticky="w", padx=4)
-                for c, owner in enumerate(owners, start=1):
-                    if info["status"] == "confirmed" and info["owner"] == owner:
-                        bg, text = theme.confirmed, "✔"
-                    elif owner in info["possible"]:
-                        bg, text = theme.possible, "?"
-                    else:
-                        bg, text = theme.impossible, "✘"
-                    cell = tk.Label(sheet_frame, text=text, bg=bg, width=4, font=theme.body_font(9))
-                    cell.grid(row=row, column=c, padx=1, pady=1, sticky="nsew")
-                    cell.bind("<Button-1>", lambda e, card=card: app.open_explain(card))
-
-                    def tooltip_text(card=card):
-                        info = app.game_state.detective_sheet()[card]
-                        if info["status"] == "confirmed":
-                            exp = app.game_state.explain_card(card)
-                            if exp is not None:
-                                return "\n".join(exp.narrative)
-                            return f"Confirmed: {info['owner']}"
-                        return "Still possible: " + ", ".join(sorted(info["possible"]))
-
-                    Tooltip(cell, tooltip_text, theme=theme)
-                row += 1
+        sheet_container = render_sheet_grid(sheet_container_holder, gs, theme, on_cell_click=app.open_explain)
+        sheet_container.pack(fill="both", expand=True)
 
         if gs.is_solved():
             suspect, weapon, room = gs.solution()
             banner.config(text=f"SOLVED — {suspect.name} · {weapon.name} · {room.name}")
             banner.pack(side="right")
-            advisor_label.config(text="The game is solved. Make your accusation!")
         else:
             banner.pack_forget()
-            candidates = gs.best_suggestions(top_k=5)
-            if candidates:
-                best = candidates[0]
-                advisor_label.config(
-                    text=f"Suggest: {best.suspect.name}, {best.weapon.name}, {best.room.name}\n\n{best.rationale}"
-                )
-            else:
-                advisor_label.config(text="Not enough information yet to suggest anything.")
 
-        for child in prob_inner.winfo_children():
-            child.destroy()
-        try:
-            probs = gs.card_probabilities()
-            for card_type, title in (
-                (CardType.SUSPECT, "Suspect"), (CardType.WEAPON, "Weapon"), (CardType.ROOM, "Room")
-            ):
-                best_card, best_p = None, -1.0
-                for card in gs.cards:
-                    if card.type != card_type:
-                        continue
-                    p = probs.get(card, {}).get(ENVELOPE, 0.0)
-                    if p > best_p:
-                        best_card, best_p = card, p
-                row_frame = tk.Frame(prob_inner, bg=theme.panel_bg)
-                row_frame.pack(fill="x", pady=2)
-                tk.Label(
-                    row_frame, text=f"{title}:", bg=theme.panel_bg, font=theme.body_font(9), width=9, anchor="w"
-                ).pack(side="left")
-                color = theme.confirmed if best_p >= 0.999 else theme.text
-                tk.Label(
-                    row_frame, text=f"{best_card.name} ({best_p * 100:.0f}%)",
-                    bg=theme.panel_bg, font=theme.body_font(9), fg=color, anchor="w",
-                ).pack(side="left")
-        except TooManyAmbiguousCardsError:
-            tk.Label(
-                prob_inner, text="Not enough information yet for probabilities.",
-                bg=theme.panel_bg, font=theme.body_font(9), wraplength=280, justify="left",
-            ).pack()
-
-        stats = gs.last_solver_stats
-        confirmed_count = sum(1 for v in sheet.values() if v["status"] == "confirmed")
-        stats_label.config(
-            text=(
-                f"Suggestions logged: {len(gs.history)}\n"
-                f"Confirmed cards: {confirmed_count}/{len(gs.cards)}\n"
-                f"Ambiguous cards: {stats.ambiguous_card_count_last}\n"
-                f"Valid worlds (last count): {stats.valid_worlds_last_counted}\n"
-                f"Propagation iterations: {stats.propagation_iterations}\n"
-                f"Last solve time: {stats.wall_clock_seconds * 1000:.1f} ms"
-            )
-        )
+        for panel_frame in panels:
+            panel_frame.refresh(gs)
 
     app.refresh_main_screen = refresh
     refresh()

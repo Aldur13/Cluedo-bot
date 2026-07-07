@@ -1,6 +1,8 @@
 import tkinter as tk
 
 from cluedo.engine import ContradictionError
+from cluedo.gui.suggestion_dialog import _default_suggester_seat, _last_choice
+from cluedo.gui.widgets import ChoiceGrid
 from cluedo.history import whatif_game_state
 from cluedo.models import Suggestion, SuggestionResponse
 
@@ -10,7 +12,7 @@ def open_whatif(app):
     theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title("What-If")
-    win.geometry("480x460")
+    win.geometry("480x600")
     win.configure(bg=theme.bg)
 
     tk.Label(
@@ -18,18 +20,25 @@ def open_whatif(app):
         font=theme.body_font(10), justify="left", bg=theme.bg,
     ).pack(padx=14, pady=10, anchor="w")
 
-    suggester_var = tk.StringVar(value=gs.players[0].name)
-    tk.OptionMenu(win, suggester_var, *[p.name for p in gs.players]).pack(fill="x", padx=14)
-
-    def dropdown(label, names):
+    def choice_section(label, names, default):
         tk.Label(win, text=label, font=theme.body_font(10), bg=theme.bg).pack(anchor="w", padx=14, pady=(8, 2))
-        var = tk.StringVar(value=names[0])
-        tk.OptionMenu(win, var, *names).pack(fill="x", padx=14)
+        var = tk.StringVar(value=default)
+        ChoiceGrid(win, names, var, theme=theme, columns=3).pack(fill="x", padx=14)
         return var
 
-    suspect_var = dropdown("Suspect:", list(gs.config.suspects))
-    weapon_var = dropdown("Weapon:", list(gs.config.weapons))
-    room_var = dropdown("Room:", list(gs.config.rooms))
+    default_suggester_seat = _default_suggester_seat(gs)
+    suggester_var = choice_section(
+        "Suggesting player:", [p.name for p in gs.players], gs.players[default_suggester_seat].name
+    )
+    suspect_var = choice_section(
+        "Suspect:", list(gs.config.suspects), _last_choice["suspect"] or gs.config.suspects[0]
+    )
+    weapon_var = choice_section(
+        "Weapon:", list(gs.config.weapons), _last_choice["weapon"] or gs.config.weapons[0]
+    )
+    room_var = choice_section(
+        "Room:", list(gs.config.rooms), _last_choice["room"] or gs.config.rooms[0]
+    )
 
     tk.Label(win, text="Hypothetical outcome:", font=theme.body_font(10), bg=theme.bg).pack(
         anchor="w", padx=14, pady=(8, 2)

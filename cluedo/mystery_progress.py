@@ -18,12 +18,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
+from cluedo.engine import ContradictionError
 from cluedo.history import whatif_game_state
 from cluedo.models import Suggestion, SuggestionResponse, seat_id
-from cluedo.probability import probability_of_response_outcome
+from cluedo.probability import TooManyAmbiguousCardsError, probability_of_response_outcome
 
 if TYPE_CHECKING:
     from cluedo.game import GameState
+
+# Above this many still-ambiguous cards, computing an exact "chance of
+# solving next turn" becomes intractable: _p_candidate_solves rebuilds a
+# whatif GameState (which itself runs the engine's own bounded exhaustive
+# world-search) for every candidate x every possible responder, so the cost
+# multiplies rather than just adding. Mirrors advisor.py's
+# _MAX_AMBIGUOUS_FOR_EXACT_GAIN gate -- same "never guess, just admit
+# exactness isn't cheap yet" philosophy, applied to this module's own
+# repeated whatif/probability calls.
+_MAX_AMBIGUOUS_FOR_SOLVE_CHANCE = 15
 
 
 @dataclass(frozen=True)
@@ -49,7 +60,7 @@ def _p_candidate_solves(game_state: "GameState", suspect, weapon, room) -> float
         outcome_probs = probability_of_response_outcome(
             ci, confirmed_owner_of, suspect, weapon, room, [seat_id(s) for s in responder_order]
         )
-    except Exception:
+    except TooManyAmbiguousCardsError:
         return 0.0
 
     total = 0.0
@@ -69,7 +80,7 @@ def _p_candidate_solves(game_state: "GameState", suspect, weapon, room) -> float
         hypothetical = Suggestion("__whatif__", game_state.user_seat, suspect, weapon, room, tuple(responses))
         try:
             scratch = whatif_game_state(game_state, hypothetical)
-        except Exception:
+        except ContradictionError:
             continue  # this outcome turned out to be impossible; contributes 0
 
         if scratch.is_solved():
@@ -80,6 +91,10 @@ def _p_candidate_solves(game_state: "GameState", suspect, weapon, room) -> float
 
 def _chance_of_solving_next_turn(game_state: "GameState") -> Optional[float]:
     if game_state.is_solved():
+        return None
+
+    ci = game_state.engine.counting_input()
+    if len(ci.ambiguous) > _MAX_AMBIGUOUS_FOR_SOLVE_CHANCE:
         return None
 
     candidates = game_state.best_suggestions(top_k=3)[:3]

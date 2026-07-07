@@ -1,4 +1,5 @@
 import tkinter as tk
+import uuid
 from tkinter import filedialog, messagebox
 
 from cluedo.game import GameState, SaveFileError, default_autosave_path, load_game, save_game
@@ -6,15 +7,18 @@ from cluedo.gui import (
     edition_select_screen,
     explain_dialog,
     export_dialog,
+    graph_screen,
     hand_screen,
     main_screen,
     replay_screen,
+    settings_screen,
     setup_screen,
     suggestion_dialog,
     timeline_screen,
     whatif_screen,
 )
 from cluedo.gui.theme import LIGHT, ThemeManager
+from cluedo.persistence.player_store import PlayerStore
 
 
 class App:
@@ -33,6 +37,10 @@ class App:
         self._current_frame = None
         self._current_screen_show = lambda: None
         self.refresh_main_screen = lambda: None
+
+        self.player_store = PlayerStore()
+        self._game_id: str | None = None
+        self._game_end_recorded = False
 
         self._bind_shortcuts()
         if not self._maybe_offer_recovery():
@@ -61,6 +69,7 @@ class App:
 
     def _on_setup_confirmed(self, players, user_seat):
         self.game_state = GameState(self.pending_config, players, user_seat)
+        self._start_tracking_game()
         expected = players[user_seat].hand_size
         self._current_screen_show = lambda: self._on_setup_confirmed(players, user_seat)
         self._swap(
@@ -77,10 +86,48 @@ class App:
         self._current_screen_show = self.show_main_screen
         self._swap(main_screen.build(self.root, self))
 
+    # ---------------------------------------------------- player_store sync
+
+    def _start_tracking_game(self):
+        """Called once per game (new setup, load, or crash recovery) to begin
+        mirroring it into `self.player_store`. Safe to call repeatedly for the
+        same GameState -- record_game_start upserts by game_id."""
+        if self.game_state is None:
+            return
+        self._game_id = uuid.uuid4().hex
+        self._game_end_recorded = False
+        self.player_store.record_game_start(
+            self._game_id, self.game_state.config.edition, self.game_state.players
+        )
+        self._sync_player_store()
+
+    def _sync_player_store(self):
+        """Mirrors the live GameState into `self.player_store`: every current
+        suggestion (upserted by index, so edits overwrite cleanly) plus a
+        one-shot game-end record once solved. Called after every mutation,
+        matching this store's own "treat it like autosave" design.
+
+        Known limitation: undo/delete shrinking history doesn't retract the
+        now-stale trailing rows from a previous longer history -- an
+        acceptable gap for this analytics-only mirror (it never feeds back
+        into the solver), not worth a new PlayerStore deletion API for.
+        """
+        if self.game_state is None or self._game_id is None:
+            return
+        for index, suggestion in enumerate(self.game_state.history):
+            self.player_store.record_suggestion(self._game_id, index, suggestion)
+
+        if self.game_state.is_solved() and not self._game_end_recorded:
+            self._game_end_recorded = True
+            self.player_store.record_game_end(
+                self._game_id, True, len(self.game_state.history), self.game_state.solution()
+            )
+
     # -------------------------------------------------------------- actions
 
     def after_mutation(self):
         self._autosave()
+        self._sync_player_store()
         self.refresh_main_screen()
 
     def open_suggestion_dialog(self):
@@ -98,6 +145,13 @@ class App:
     def open_whatif(self):
         if self.game_state:
             whatif_screen.open_whatif(self)
+
+    def open_graphs(self):
+        if self.game_state:
+            graph_screen.open_graphs(self)
+
+    def open_settings(self):
+        settings_screen.open_settings(self)
 
     def open_explain(self, card):
         if self.game_state:
@@ -130,6 +184,7 @@ class App:
         except SaveFileError as exc:
             messagebox.showerror("Couldn't load file", str(exc))
             return
+        self._start_tracking_game()
         self.show_main_screen()
 
     def _autosave(self):
@@ -151,6 +206,7 @@ class App:
         except SaveFileError as exc:
             messagebox.showerror("Couldn't recover", str(exc))
             return False
+        self._start_tracking_game()
         self.show_main_screen()
         return True
 
