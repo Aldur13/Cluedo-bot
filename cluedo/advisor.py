@@ -18,6 +18,14 @@ from cluedo.probability import count_worlds, probability_of_response_outcome
 if TYPE_CHECKING:
     from cluedo.game import GameState
 
+# Above this many still-ambiguous cards, exact expected-information-gain
+# becomes intractable: _expected_info_gain rebuilds a whatif GameState (which
+# itself runs the engine's own bounded exhaustive world-search) for every
+# candidate x every possible responder, so the cost multiplies rather than
+# just adding. Mirrors probability.py's TooManyAmbiguousCardsError gate --
+# same "never guess, just admit exactness isn't cheap yet" philosophy.
+_MAX_AMBIGUOUS_FOR_EXACT_GAIN = 15
+
 
 @dataclass(frozen=True)
 class AdvisorCandidate:
@@ -70,7 +78,19 @@ def rank_candidates(game_state: "GameState", *, top_k: int = 8) -> list[AdvisorC
     scored.sort(key=lambda pair: pair[1], reverse=True)
     top = scored[:top_k]
 
-    current_total = count_worlds(game_state.engine.counting_input())
+    ci = game_state.engine.counting_input()
+    if len(ci.ambiguous) > _MAX_AMBIGUOUS_FOR_EXACT_GAIN:
+        fallback = [
+            AdvisorCandidate(
+                s, w, r, cheap, None,
+                "Too many unknown cards remain to compute exact odds yet -- ranked by rough uncertainty instead.",
+            )
+            for (s, w, r), cheap in top
+        ]
+        fallback.sort(key=lambda c: c.cheap_score, reverse=True)
+        return fallback
+
+    current_total = count_worlds(ci)
 
     results = []
     for (suspect, weapon, room), cheap in top:
