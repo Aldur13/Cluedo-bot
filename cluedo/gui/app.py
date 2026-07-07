@@ -6,19 +6,26 @@ from tkinter import filedialog, messagebox
 from cluedo import __version__
 from cluedo.game import GameState, SaveFileError, default_autosave_path, load_game, save_game
 from cluedo.gui import (
+    deduction_graph_screen,
     edition_select_screen,
+    envelope_explorer_screen,
     explain_dialog,
     export_dialog,
     game_review_screen,
     graph_screen,
     hand_screen,
     main_screen,
+    movement_screen,
+    recommendation_simulator_screen,
     replay_screen,
     settings_screen,
     setup_screen,
+    suggestion_comparison_screen,
     suggestion_dialog,
     timeline_screen,
+    turn_inspector_screen,
     whatif_screen,
+    world_explorer_screen,
 )
 from cluedo.gui.theme import LIGHT, ThemeManager
 from cluedo.persistence.player_store import PlayerStore
@@ -37,6 +44,9 @@ class App:
 
         self.game_state: GameState | None = None
         self.pending_config = None
+        self._edition_key: str | None = None
+        self._movement_graph_cache = None
+        self._movement_graph_cache_key: str | None = None
         self._current_frame = None
         self._current_screen_show = lambda: None
         self.refresh_main_screen = lambda: None
@@ -68,9 +78,10 @@ class App:
         self._current_screen_show = self.show_edition_select
         self._swap(edition_select_screen.build(self.root, self.theme_manager.current, self._on_edition_selected))
 
-    def _on_edition_selected(self, config):
+    def _on_edition_selected(self, config, edition_key=None):
         self.pending_config = config
-        self._current_screen_show = lambda: self._on_edition_selected(config)
+        self._edition_key = edition_key
+        self._current_screen_show = lambda: self._on_edition_selected(config, edition_key)
         self._swap(setup_screen.build(self.root, self.theme_manager.current, config, self._on_setup_confirmed))
 
     def _on_setup_confirmed(self, players, user_seat):
@@ -206,6 +217,51 @@ class App:
         if self.game_state:
             export_dialog.open_export(self)
 
+    def open_world_explorer(self):
+        if self.game_state:
+            world_explorer_screen.open_world_explorer(self)
+
+    def open_turn_inspector(self, turn_index=None):
+        if self.game_state:
+            turn_inspector_screen.open_turn_inspector(self, turn_index)
+
+    def open_deduction_graph(self, card):
+        if self.game_state:
+            deduction_graph_screen.open_deduction_graph(self, card)
+
+    def open_envelope_explorer(self):
+        if self.game_state:
+            envelope_explorer_screen.open_envelope_explorer(self)
+
+    def open_suggestion_comparison(self):
+        if self.game_state:
+            suggestion_comparison_screen.open_suggestion_comparison(self)
+
+    def open_recommendation_simulator(self, detailed_candidate=None):
+        if self.game_state:
+            recommendation_simulator_screen.open_recommendation_simulator(self, detailed_candidate)
+
+    def open_movement_screen(self):
+        if self.game_state:
+            movement_screen.open_movement_screen(self)
+
+    def current_movement_graph(self):
+        """The MovementGraph for the live game's edition, or None if no
+        movement data is bundled for it (e.g. classic_uk/classic_us, a
+        custom-loaded edition, or a loaded save file -- the edition key
+        isn't part of the save format, so reloaded games fall back to this
+        same graceful "unsupported" state). Cached per edition key so the
+        graph (and its all-pairs shortest-path precompute) is never rebuilt
+        unnecessarily."""
+        if self.game_state is None or self._edition_key is None:
+            return None
+        if self._movement_graph_cache is None or self._movement_graph_cache_key != self._edition_key:
+            from cluedo.movement.graph import MovementGraph
+
+            self._movement_graph_cache = MovementGraph.from_edition(self._edition_key, self.game_state.config.rooms)
+            self._movement_graph_cache_key = self._edition_key
+        return self._movement_graph_cache
+
     def undo(self):
         if self.game_state and self.game_state.history:
             self.game_state.undo_last_suggestion()
@@ -229,6 +285,10 @@ class App:
         except SaveFileError as exc:
             messagebox.showerror("Couldn't load file", str(exc))
             return
+        # Loaded saves don't carry a bundled edition key (not part of the
+        # save format), so movement data gracefully reports "unsupported"
+        # for reloaded games rather than guessing at a key.
+        self._edition_key = None
         self._start_tracking_game()
         self.show_main_screen()
 

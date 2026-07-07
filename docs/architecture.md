@@ -53,6 +53,19 @@ cluedo/
                    what-if primitive.
   gui/            Tkinter screens and dialogs. Only imports from cluedo.* and
                    tkinter; owns no deduction logic.
+  movement/       Board movement/dice engine (v4.6+). MovementGraph (hub +
+                   secret-passage shortest paths), dice.py (real 2d6
+                   probability math), scoring.py (per-room ranking,
+                   combining graph/dice output with advisor.py's
+                   expected-info-gain). Bundled per-edition board data lives
+                   in cluedo/data/movement_<edition_key>.json -- an edition
+                   with no file simply has no movement features (a normal,
+                   graceful "unsupported" state, not an error). Unlike
+                   analysis/ and persistence/, movement/ is allowed to
+                   import cluedo.advisor -- the one-way dependency (movement
+                   -> advisor, never the reverse) is why it's deliberately
+                   NOT added to tests/test_architecture_boundaries.py's
+                   SOLVER_MODULES list.
 ```
 
 ## The atomic-mutation pattern

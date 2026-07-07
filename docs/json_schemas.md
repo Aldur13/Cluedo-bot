@@ -55,7 +55,8 @@ format used for autosave and "Export → Full game as JSON".
         {"responder_seat": 2, "outcome": "shown_to_me", "shown_card": "card name"}
       ]
     }
-  ]
+  ],
+  "current_room": "string or null"
 }
 ```
 
@@ -68,3 +69,50 @@ with a clear error rather than being replayed incorrectly. Loading replays
 solver internals directly — the file only ever needs to describe *what
 happened*, not *what the engine concluded*, so future engine improvements
 stay compatible with old save files.
+
+`current_room` is optional, added in v4.6. It tracks only the app user's
+own board position (never other players'), set via
+`GameState.set_current_room`. Absent in pre-v4.6 saves, which load with
+`current_room: null` — no `save_format_version` bump was needed since it's
+purely additive and read via `.get(...)`. A saved room name that no longer
+exists in `card_config.rooms` (e.g. a hand-edited or cross-edition file) is
+silently dropped back to `null` rather than rejecting the whole file.
+
+## Movement data (board topology)
+
+Bundled per edition under `cluedo/data/movement_<edition_key>.json` (e.g.
+`movement_swedish_2012.json`), separate from the card-set config above since
+not every edition has a physical board mapped out yet — an edition with no
+file simply has no movement/dice features available (loaded via
+`cluedo.movement.data.load_movement_data`, which returns `None` for a
+missing file, not an error).
+
+```json
+{
+  "edition_key": "string, must match the bundled edition key (e.g. \"swedish_2012\")",
+  "hub": "string, the shared hallway node name",
+  "distances_to_hub": {
+    "room name": "positive integer tile-distance from that room's entrance to the hub"
+  },
+  "secret_passages": [["room name", "room name"]],
+  "_comment": "optional, ignored by the loader; use it to document how the numbers were derived"
+}
+```
+
+Rules enforced by `cluedo/movement/data.py`:
+
+- `distances_to_hub` must have exactly one entry per room in the edition's
+  `rooms` list — no missing rooms, no extra unknown rooms.
+- Every distance must be a positive integer.
+- Every `secret_passages` pair must name two distinct, real rooms; no
+  duplicate (unordered) pairs.
+- Secret passages are modeled as **instant, no-roll** moves (standard
+  Cluedo rule) — a room directly connected by a passage from the player's
+  current room is 100% reachable every turn regardless of the dice.
+
+The board is modeled as a hub-and-spoke graph (every room connects only to
+the shared hallway `hub`, plus zero-weight shortcut edges for secret
+passages) — see `cluedo/movement/graph.py` for the shortest-path
+computation. This keeps the topology data honest about what's actually
+known (rooms open onto one shared hallway) without inventing room-to-room
+adjacency that was never confirmed.

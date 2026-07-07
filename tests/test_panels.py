@@ -18,6 +18,7 @@ from cluedo.game import GameState
 from cluedo.gui.panels import (
     ai_insights_panel,
     best_suggestion_panel,
+    dice_analysis_panel,
     endgame_panel,
     envelope_probabilities_panel,
     game_review_card_panel,
@@ -34,6 +35,7 @@ PANEL_MODULES = [
     best_suggestion_panel,
     envelope_probabilities_panel,
     mystery_progress_panel,
+    dice_analysis_panel,
     ai_insights_panel,
     recent_deductions_panel,
     timeline_panel,
@@ -56,6 +58,12 @@ class _FakeApp:
         self.game_state = game_state
         self._game_review_cache = None
         self.open_game_review = lambda: None
+        self.after_mutation = lambda: None
+        # classic_uk (the `cfg` fixture's edition) has no bundled movement
+        # data, matching real App.current_movement_graph()'s behavior for
+        # an edition with no movement file -- dice_analysis_panel must
+        # degrade gracefully under this shared "every panel" loop.
+        self.current_movement_graph = lambda: None
 
 
 def _fake_app(root, game_state=None):

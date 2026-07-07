@@ -36,6 +36,7 @@ class GameState:
         self._next_suggestion_id = 1
         self.engine = ConstraintEngine(self.cards, players)
         self._mutation_seq = 0
+        self.current_room: Optional[str] = None
 
     # ---------------------------------------------------------- construction
 
@@ -110,6 +111,18 @@ class GameState:
     def set_user_hand(self, cards: list[Card]) -> None:
         candidate = GameState.from_history(self.config, self.players, self.user_seat, cards, self.history)
         self._adopt(candidate)
+
+    def set_current_room(self, room_name: Optional[str]) -> None:
+        """Tracks where the app user's own token currently sits on the
+        physical board (only the user's position -- other players' moves
+        aren't tracked). Movement has no bearing on card deduction, so this
+        bypasses the from_history/_adopt atomic-mutation pattern entirely --
+        there's no ContradictionError for it to ever raise -- but it still
+        bumps mutation_seq directly so panels/screens keyed off it refresh."""
+        if room_name is not None and room_name not in self.config.rooms:
+            raise ValueError(f"Unknown room: {room_name!r}")
+        self.current_room = room_name
+        self._mutation_seq += 1
 
     def responders_in_order(self, suggester_seat: int) -> list[int]:
         n = len(self.players)
@@ -223,6 +236,7 @@ class GameState:
             "user_seat": self.user_seat,
             "initial_hand": [c.name for c in self._initial_hand],
             "history": [_suggestion_to_dict(s) for s in self.history],
+            "current_room": self.current_room,
         }
 
     @classmethod
@@ -246,9 +260,18 @@ class GameState:
             raise SaveFileError(f"Couldn't load this file: malformed data ({exc}).") from exc
 
         try:
-            return cls.from_history(config, players, user_seat, initial_hand, history)
+            gs = cls.from_history(config, players, user_seat, initial_hand, history)
         except ContradictionError as exc:
             raise SaveFileError(f"This save file describes an impossible game state: {exc.message}") from exc
+
+        # Optional field, absent in pre-v4.6 saves -- .get(...) keeps those
+        # loading unchanged (current_room simply defaults to None). Tolerate
+        # a stale/edited-out room name rather than raising, since movement
+        # position is advisory, not load-bearing state.
+        current_room = data.get("current_room")
+        if current_room is not None and current_room in config.rooms:
+            gs.current_room = current_room
+        return gs
 
 
 def _suggestion_to_dict(s: Suggestion) -> dict:

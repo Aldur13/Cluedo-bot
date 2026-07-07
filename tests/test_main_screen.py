@@ -31,8 +31,16 @@ class _FakeApp:
         for name in (
             "open_suggestion_dialog", "undo", "open_timeline", "open_replay",
             "open_whatif", "open_graphs", "open_game_review", "save", "load", "open_export", "open_settings",
+            "open_world_explorer", "open_turn_inspector", "open_envelope_explorer",
+            "open_suggestion_comparison", "open_recommendation_simulator", "open_movement_screen",
         ):
             setattr(self, name, lambda: None)
+
+    def current_movement_graph(self):
+        # classic_uk (this fixture's edition) has no bundled movement data --
+        # matches real App.current_movement_graph()'s behavior for an
+        # edition with no movement file.
+        return None
 
     def open_explain(self, card):
         pass
@@ -79,7 +87,7 @@ def test_dashboard_wires_every_card_exactly_once_with_no_bare_labelframes(
         titles = _card_titles(frame)
 
         for expected in (
-            "Best Suggestion", "Envelope Analysis", "Mystery Progress", "AI Insights",
+            "Best Suggestion", "Envelope Analysis", "Mystery Progress", "Dice Analysis", "AI Insights",
             "Recent Deductions", "Timeline", "Endgame", "Warnings", "Statistics", "Game Review",
         ):
             assert titles.count(expected) == 1, f"expected exactly one {expected!r} card, found {titles.count(expected)}"
