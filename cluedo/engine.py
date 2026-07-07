@@ -57,7 +57,7 @@ class _RawFact:
 
 
 class ConstraintEngine:
-    def __init__(self, cards: list[Card], players: list[Player], *, max_confirmation_ambiguous: int = 16):
+    def __init__(self, cards: list[Card], players: list[Player], *, max_confirmation_ambiguous: int = 10):
         self.cards = list(cards)
         self.players = list(players)
         self.owners = [p.owner_id for p in players] + [ENVELOPE]
@@ -158,44 +158,54 @@ class ConstraintEngine:
                     Fact(FactKind.NOT_OWNED, f.card, f.owner, f.source, f"{f.owner} could not own {f.card.name}.")
                 )
 
-        changed = True
-        iterations = 0
-        while changed:
-            changed = False
-            iterations += 1
+        total_iterations = 0
+        # Bounded by len(self.cards)+1 cascade rounds: a round either confirms at
+        # least one more card via world-search (self.confirmed only ever grows, so
+        # this is strictly monotonic) or the loop exits -- unlike the old
+        # "return self.recompute()" version, this never re-wipes self.confirmed
+        # between rounds, so a world-search confirmation actually persists into the
+        # next round's cheap-propagation pass instead of being silently discarded
+        # and re-derived (and re-triggered) identically forever.
+        for _ in range(len(self.cards) + 1):
+            changed = True
+            while changed:
+                changed = False
+                total_iterations += 1
 
-            for card in self.cards:
-                if card in self.confirmed:
-                    continue
-                if len(self.possible[card]) == 1:
-                    owner = next(iter(self.possible[card]))
-                    facts = card_facts[card]
-                    if any(f.kind == FactKind.AT_LEAST_ONE for f in facts):
-                        rule = FactKind.TWO_OF_THREE
-                    elif any(f.kind == FactKind.HAND_FULL for f in facts):
-                        rule = FactKind.HAND_FULL
-                    else:
-                        rule = FactKind.NOT_OWNED
-                    self._confirm(card, owner, rule, facts, "chain of eliminations")
+                for card in self.cards:
+                    if card in self.confirmed:
+                        continue
+                    if len(self.possible[card]) == 1:
+                        owner = next(iter(self.possible[card]))
+                        facts = card_facts[card]
+                        if any(f.kind == FactKind.AT_LEAST_ONE for f in facts):
+                            rule = FactKind.TWO_OF_THREE
+                        elif any(f.kind == FactKind.HAND_FULL for f in facts):
+                            rule = FactKind.HAND_FULL
+                        else:
+                            rule = FactKind.NOT_OWNED
+                        self._confirm(card, owner, rule, facts, "chain of eliminations")
+                        changed = True
+
+                if self._apply_capacity_groups(card_facts):
                     changed = True
 
-            if self._apply_capacity_groups(card_facts):
-                changed = True
+                if self._resolve_two_of_three(card_facts):
+                    changed = True
 
-            if self._resolve_two_of_three(card_facts):
-                changed = True
-
-        stats.propagation_iterations = iterations
-
-        ci = self.counting_input()
-        stats.ambiguous_card_count_last = len(ci.ambiguous)
-        if ci.ambiguous:
-            if len(ci.ambiguous) <= self._max_confirmation_ambiguous:
-                if self._confirm_via_world_search(ci):
-                    # a cascade may have unlocked more cheap propagation
-                    return self.recompute()
-            else:
+            ci = self.counting_input()
+            if not ci.ambiguous:
+                break
+            if len(ci.ambiguous) > self._max_confirmation_ambiguous:
                 stats.backtracking_skipped = True
+                break
+            if not self._confirm_via_world_search(ci):
+                break
+            # else: a cascade may have unlocked more cheap propagation -- loop
+            # again, carrying forward everything confirmed so far.
+
+        stats.propagation_iterations = total_iterations
+        stats.ambiguous_card_count_last = len(self.counting_input().ambiguous)
 
         self._check_contradictions()
 
