@@ -1,23 +1,23 @@
 import tkinter as tk
 
-from cluedo.gui import theme
 from cluedo.history import build_replay_snapshots
 
 
 def open_replay(app):
     gs = app.game_state
+    theme = app.theme_manager.current
     snapshots = build_replay_snapshots(gs)
 
     win = tk.Toplevel(app.root)
     win.title("Replay")
     win.geometry("520x520")
-    win.configure(bg=theme.BG)
+    win.configure(bg=theme.bg)
 
-    tk.Label(win, text="Scrub through the game turn by turn", font=theme.heading_font(13), bg=theme.BG).pack(
+    tk.Label(win, text="Scrub through the game turn by turn", font=theme.heading_font(13), bg=theme.bg).pack(
         anchor="w", padx=12, pady=(12, 4)
     )
 
-    label = tk.Label(win, text="", font=theme.body_font(10), justify="left", anchor="nw", bg=theme.PANEL_BG)
+    label = tk.Label(win, text="", font=theme.body_font(10), justify="left", anchor="nw", bg=theme.panel_bg)
     label.pack(fill="both", expand=True, padx=12, pady=8)
 
     def render(index):
@@ -35,7 +35,7 @@ def open_replay(app):
 
     slider = tk.Scale(
         win, from_=0, to=max(0, len(snapshots) - 1), orient="horizontal", label="Turn",
-        command=lambda v: render(int(v)), bg=theme.BG,
+        command=lambda v: render(int(v)), bg=theme.bg,
     )
     slider.pack(fill="x", padx=12, pady=(0, 12))
     slider.set(len(snapshots) - 1)

@@ -1,26 +1,25 @@
 import tkinter as tk
 from tkinter import messagebox
 
-from cluedo.gui import theme
 from cluedo.models import Player
 
 
-def build(parent, config, on_confirmed):
-    frame = tk.Frame(parent, bg=theme.BG)
+def build(parent, theme, config, on_confirmed):
+    frame = tk.Frame(parent, bg=theme.bg)
     tk.Label(
-        frame, text=f"Setup — {config.edition}", font=theme.heading_font(18), bg=theme.BG, fg=theme.TEXT
+        frame, text=f"Setup — {config.edition}", font=theme.heading_font(18), bg=theme.bg, fg=theme.text
     ).pack(pady=(24, 12))
 
     total_non_envelope = len(config.suspects) + len(config.weapons) + len(config.rooms) - 3
 
-    count_frame = tk.Frame(frame, bg=theme.BG)
+    count_frame = tk.Frame(frame, bg=theme.bg)
     count_frame.pack(pady=6)
-    tk.Label(count_frame, text="Number of players:", font=theme.body_font(11), bg=theme.BG).pack(
+    tk.Label(count_frame, text="Number of players:", font=theme.body_font(11), bg=theme.bg).pack(
         side="left", padx=6
     )
     count_var = tk.IntVar(value=3)
 
-    rows_frame = tk.Frame(frame, bg=theme.BG)
+    rows_frame = tk.Frame(frame, bg=theme.bg)
     rows_frame.pack(pady=12)
 
     name_vars: list[tk.StringVar] = []
@@ -39,13 +38,13 @@ def build(parent, config, on_confirmed):
         n = count_var.get()
         sizes = default_hand_sizes(n)
         for i in range(n):
-            row = tk.Frame(rows_frame, bg=theme.BG)
+            row = tk.Frame(rows_frame, bg=theme.bg)
             row.pack(fill="x", pady=3)
-            tk.Radiobutton(row, text="You", variable=you_var, value=i, bg=theme.BG).pack(side="left", padx=(0, 8))
+            tk.Radiobutton(row, text="You", variable=you_var, value=i, bg=theme.bg).pack(side="left", padx=(0, 8))
             nv = tk.StringVar(value=f"Player {i + 1}")
             name_vars.append(nv)
             tk.Entry(row, textvariable=nv, width=18, font=theme.body_font(11)).pack(side="left", padx=4)
-            tk.Label(row, text="Hand size:", bg=theme.BG, font=theme.body_font(10)).pack(side="left", padx=(12, 4))
+            tk.Label(row, text="Hand size:", bg=theme.bg, font=theme.body_font(10)).pack(side="left", padx=(12, 4))
             hv = tk.IntVar(value=sizes[i])
             hand_vars.append(hv)
             tk.Spinbox(row, from_=0, to=total_non_envelope, textvariable=hv, width=4).pack(side="left")
@@ -59,7 +58,7 @@ def build(parent, config, on_confirmed):
         f"Hand sizes must total {total_non_envelope} "
         f"({len(config.suspects) + len(config.weapons) + len(config.rooms)} cards minus the 3 in the envelope)."
     )
-    tk.Label(frame, text=hint, font=theme.body_font(9), bg=theme.BG, fg=theme.MUTED_TEXT).pack(pady=(0, 4))
+    tk.Label(frame, text=hint, font=theme.body_font(9), bg=theme.bg, fg=theme.muted_text).pack(pady=(0, 4))
 
     def confirm():
         n = count_var.get()
@@ -78,8 +77,8 @@ def build(parent, config, on_confirmed):
         on_confirmed(players, you_var.get())
 
     tk.Button(
-        frame, text="Continue →", font=theme.body_font(12), bg=theme.ACCENT, fg="white",
-        activebackground=theme.ACCENT_DARK, padx=20, pady=8, cursor="hand2", command=confirm,
+        frame, text="Continue →", font=theme.body_font(12), bg=theme.accent, fg="white",
+        activebackground=theme.accent_dark, padx=20, pady=8, cursor="hand2", command=confirm,
     ).pack(pady=20)
 
     return frame

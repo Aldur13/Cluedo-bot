@@ -4,16 +4,16 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
-from cluedo.gui import theme
 from cluedo.models import CardType, ENVELOPE
 
 
 def open_export(app):
     gs = app.game_state
+    theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title("Export")
     win.geometry("320x280")
-    win.configure(bg=theme.BG)
+    win.configure(bg=theme.bg)
 
     def export_png():
         path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG image", "*.png")])

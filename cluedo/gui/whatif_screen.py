@@ -1,28 +1,28 @@
 import tkinter as tk
 
 from cluedo.engine import ContradictionError
-from cluedo.gui import theme
 from cluedo.history import whatif_game_state
 from cluedo.models import Suggestion, SuggestionResponse
 
 
 def open_whatif(app):
     gs = app.game_state
+    theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title("What-If")
     win.geometry("480x460")
-    win.configure(bg=theme.BG)
+    win.configure(bg=theme.bg)
 
     tk.Label(
         win, text="Simulate a hypothetical outcome\n(never affects your real game)",
-        font=theme.body_font(10), justify="left", bg=theme.BG,
+        font=theme.body_font(10), justify="left", bg=theme.bg,
     ).pack(padx=14, pady=10, anchor="w")
 
     suggester_var = tk.StringVar(value=gs.players[0].name)
     tk.OptionMenu(win, suggester_var, *[p.name for p in gs.players]).pack(fill="x", padx=14)
 
     def dropdown(label, names):
-        tk.Label(win, text=label, font=theme.body_font(10), bg=theme.BG).pack(anchor="w", padx=14, pady=(8, 2))
+        tk.Label(win, text=label, font=theme.body_font(10), bg=theme.bg).pack(anchor="w", padx=14, pady=(8, 2))
         var = tk.StringVar(value=names[0])
         tk.OptionMenu(win, var, *names).pack(fill="x", padx=14)
         return var
@@ -31,13 +31,13 @@ def open_whatif(app):
     weapon_var = dropdown("Weapon:", list(gs.config.weapons))
     room_var = dropdown("Room:", list(gs.config.rooms))
 
-    tk.Label(win, text="Hypothetical outcome:", font=theme.body_font(10), bg=theme.BG).pack(
+    tk.Label(win, text="Hypothetical outcome:", font=theme.body_font(10), bg=theme.bg).pack(
         anchor="w", padx=14, pady=(8, 2)
     )
     outcome_var = tk.StringVar(value="no_show")
-    outcome_frame = tk.Frame(win, bg=theme.BG)
+    outcome_frame = tk.Frame(win, bg=theme.bg)
     outcome_frame.pack(anchor="w", padx=14)
-    tk.Radiobutton(outcome_frame, text="Nobody shows", variable=outcome_var, value="no_show", bg=theme.BG).pack(
+    tk.Radiobutton(outcome_frame, text="Nobody shows", variable=outcome_var, value="no_show", bg=theme.bg).pack(
         side="left"
     )
 
@@ -48,14 +48,14 @@ def open_whatif(app):
         for seat in gs.responders_in_order(suggester_seat):
             tk.Radiobutton(
                 outcome_frame, text=f"{gs.players[seat].name} shows", variable=outcome_var, value=str(seat),
-                bg=theme.BG,
+                bg=theme.bg,
             ).pack(side="left")
 
     suggester_var.trace_add("write", lambda *a: rebuild_who_shows())
     rebuild_who_shows()
 
     result_label = tk.Label(
-        win, text="", justify="left", font=theme.body_font(9), wraplength=440, bg=theme.PANEL_BG, anchor="nw"
+        win, text="", justify="left", font=theme.body_font(9), wraplength=440, bg=theme.panel_bg, anchor="nw"
     )
     result_label.pack(fill="both", expand=True, padx=14, pady=12)
 
@@ -102,7 +102,7 @@ def open_whatif(app):
         result_label.config(text="\n".join(lines))
 
     tk.Button(
-        win, text="Simulate", bg=theme.ACCENT, fg="white", font=theme.body_font(10), padx=14, pady=6,
+        win, text="Simulate", bg=theme.accent, fg="white", font=theme.body_font(10), padx=14, pady=6,
         command=run_whatif,
     ).pack(pady=8)
     tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

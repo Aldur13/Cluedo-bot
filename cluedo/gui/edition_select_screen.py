@@ -2,20 +2,19 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 from cluedo.config import ConfigError, list_bundled_editions, load_bundled_edition, load_card_config
-from cluedo.gui import theme
 
 
-def build(parent, on_selected):
-    frame = tk.Frame(parent, bg=theme.BG)
+def build(parent, theme, on_selected):
+    frame = tk.Frame(parent, bg=theme.bg)
 
     tk.Label(
-        frame, text="Cluedo Deduction Assistant", font=theme.heading_font(22), bg=theme.BG, fg=theme.TEXT
+        frame, text="Cluedo Deduction Assistant", font=theme.heading_font(22), bg=theme.bg, fg=theme.text
     ).pack(pady=(48, 4))
     tk.Label(
-        frame, text="Choose an edition to begin", font=theme.body_font(12), bg=theme.BG, fg=theme.MUTED_TEXT
+        frame, text="Choose an edition to begin", font=theme.body_font(12), bg=theme.bg, fg=theme.muted_text
     ).pack(pady=(0, 28))
 
-    card_frame = tk.Frame(frame, bg=theme.BG)
+    card_frame = tk.Frame(frame, bg=theme.bg)
     card_frame.pack()
 
     for key, display_name in list_bundled_editions():
@@ -25,8 +24,8 @@ def build(parent, on_selected):
             font=theme.body_font(12),
             width=34,
             height=2,
-            bg=theme.PANEL_BG,
-            fg=theme.TEXT,
+            bg=theme.panel_bg,
+            fg=theme.text,
             relief="raised",
             bd=1,
             cursor="hand2",
@@ -52,8 +51,8 @@ def build(parent, on_selected):
         font=theme.body_font(12),
         width=34,
         height=2,
-        bg=theme.PANEL_BG,
-        fg=theme.ACCENT,
+        bg=theme.panel_bg,
+        fg=theme.accent,
         relief="raised",
         bd=1,
         cursor="hand2",

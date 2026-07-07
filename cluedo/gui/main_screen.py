@@ -1,6 +1,5 @@
 import tkinter as tk
 
-from cluedo.gui import theme
 from cluedo.gui.widgets import Tooltip
 from cluedo.models import CardType, ENVELOPE
 from cluedo.probability import TooManyAmbiguousCardsError
@@ -9,18 +8,19 @@ from cluedo.probability import TooManyAmbiguousCardsError
 def build(parent, app):
     """`app` is the App controller; this screen reads/writes app.game_state and
     calls back into `app` for cross-screen actions (dialogs, save, etc.)."""
-    frame = tk.Frame(parent, bg=theme.BG)
+    theme = app.theme_manager.current
+    frame = tk.Frame(parent, bg=theme.bg)
 
-    header = tk.Frame(frame, bg=theme.BG)
+    header = tk.Frame(frame, bg=theme.bg)
     header.pack(fill="x", padx=12, pady=(10, 4))
-    tk.Label(header, text="Detective Sheet", font=theme.heading_font(16), bg=theme.BG, fg=theme.TEXT).pack(
+    tk.Label(header, text="Detective Sheet", font=theme.heading_font(16), bg=theme.bg, fg=theme.text).pack(
         side="left"
     )
     banner = tk.Label(
-        header, text="", font=theme.heading_font(13), bg=theme.SOLVED_BG, fg=theme.SOLVED_TEXT, padx=10, pady=4
+        header, text="", font=theme.heading_font(13), bg=theme.solved_bg, fg=theme.solved_text, padx=10, pady=4
     )
 
-    toolbar = tk.Frame(frame, bg=theme.BG)
+    toolbar = tk.Frame(frame, bg=theme.bg)
     toolbar.pack(fill="x", padx=12, pady=(0, 8))
 
     def make_button(text, command):
@@ -37,40 +37,40 @@ def build(parent, app):
     make_button("Load (Ctrl+O)", app.load)
     make_button("Export", app.open_export)
 
-    body = tk.Frame(frame, bg=theme.BG)
+    body = tk.Frame(frame, bg=theme.bg)
     body.pack(fill="both", expand=True, padx=12, pady=4)
 
-    sheet_container = tk.Frame(body, bg=theme.PANEL_BG, bd=1, relief="solid")
+    sheet_container = tk.Frame(body, bg=theme.panel_bg, bd=1, relief="solid")
     sheet_container.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
-    canvas = tk.Canvas(sheet_container, bg=theme.PANEL_BG, highlightthickness=0)
+    canvas = tk.Canvas(sheet_container, bg=theme.panel_bg, highlightthickness=0)
     vscroll = tk.Scrollbar(sheet_container, orient="vertical", command=canvas.yview)
     canvas.configure(yscrollcommand=vscroll.set)
     vscroll.pack(side="right", fill="y")
     canvas.pack(side="left", fill="both", expand=True)
-    sheet_frame = tk.Frame(canvas, bg=theme.PANEL_BG)
+    sheet_frame = tk.Frame(canvas, bg=theme.panel_bg)
     canvas.create_window((0, 0), window=sheet_frame, anchor="nw")
     sheet_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
-    side_panel = tk.Frame(body, bg=theme.BG, width=320)
+    side_panel = tk.Frame(body, bg=theme.bg, width=320)
     side_panel.pack(side="left", fill="y")
     side_panel.pack_propagate(False)
 
-    advisor_box = tk.LabelFrame(side_panel, text="Advisor", font=theme.body_font(11), bg=theme.PANEL_BG)
+    advisor_box = tk.LabelFrame(side_panel, text="Advisor", font=theme.body_font(11), bg=theme.panel_bg)
     advisor_box.pack(fill="x", pady=(0, 8))
     advisor_label = tk.Label(
-        advisor_box, text="", justify="left", wraplength=290, bg=theme.PANEL_BG, font=theme.body_font(10)
+        advisor_box, text="", justify="left", wraplength=290, bg=theme.panel_bg, font=theme.body_font(10)
     )
     advisor_label.pack(padx=8, pady=8, anchor="w")
 
-    prob_box = tk.LabelFrame(side_panel, text="Envelope probabilities", font=theme.body_font(11), bg=theme.PANEL_BG)
+    prob_box = tk.LabelFrame(side_panel, text="Envelope probabilities", font=theme.body_font(11), bg=theme.panel_bg)
     prob_box.pack(fill="x", pady=(0, 8))
-    prob_inner = tk.Frame(prob_box, bg=theme.PANEL_BG)
+    prob_inner = tk.Frame(prob_box, bg=theme.panel_bg)
     prob_inner.pack(fill="x", padx=8, pady=8)
 
-    stats_box = tk.LabelFrame(side_panel, text="Statistics", font=theme.body_font(11), bg=theme.PANEL_BG)
+    stats_box = tk.LabelFrame(side_panel, text="Statistics", font=theme.body_font(11), bg=theme.panel_bg)
     stats_box.pack(fill="x")
-    stats_label = tk.Label(stats_box, text="", justify="left", bg=theme.PANEL_BG, font=theme.body_font(9))
+    stats_label = tk.Label(stats_box, text="", justify="left", bg=theme.panel_bg, font=theme.body_font(9))
     stats_label.pack(padx=8, pady=8, anchor="w")
 
     def refresh():
@@ -84,9 +84,9 @@ def build(parent, app):
         owners = [p.owner_id for p in gs.players] + [ENVELOPE]
         owner_labels = [p.name for p in gs.players] + ["Envelope"]
 
-        tk.Label(sheet_frame, text="", bg=theme.PANEL_BG, width=18).grid(row=0, column=0)
+        tk.Label(sheet_frame, text="", bg=theme.panel_bg, width=18).grid(row=0, column=0)
         for c, label in enumerate(owner_labels, start=1):
-            tk.Label(sheet_frame, text=label, font=theme.body_font(9, "bold"), bg=theme.PANEL_BG).grid(
+            tk.Label(sheet_frame, text=label, font=theme.body_font(9, "bold"), bg=theme.panel_bg).grid(
                 row=0, column=c, padx=2, pady=2
             )
 
@@ -94,7 +94,7 @@ def build(parent, app):
         for card_type in (CardType.SUSPECT, CardType.WEAPON, CardType.ROOM):
             tk.Label(
                 sheet_frame, text=card_type.value.title(), font=theme.body_font(10, "bold"),
-                bg=theme.PANEL_BG, fg=theme.ACCENT_DARK,
+                bg=theme.panel_bg, fg=theme.accent_dark,
             ).grid(row=row, column=0, columnspan=len(owners) + 1, sticky="w", pady=(10, 2), padx=4)
             row += 1
             for card in gs.cards:
@@ -102,15 +102,15 @@ def build(parent, app):
                     continue
                 info = sheet[card]
                 tk.Label(
-                    sheet_frame, text=card.name, font=theme.body_font(9), bg=theme.PANEL_BG, anchor="w", width=18
+                    sheet_frame, text=card.name, font=theme.body_font(9), bg=theme.panel_bg, anchor="w", width=18
                 ).grid(row=row, column=0, sticky="w", padx=4)
                 for c, owner in enumerate(owners, start=1):
                     if info["status"] == "confirmed" and info["owner"] == owner:
-                        bg, text = theme.CONFIRMED, "✔"
+                        bg, text = theme.confirmed, "✔"
                     elif owner in info["possible"]:
-                        bg, text = theme.POSSIBLE, "?"
+                        bg, text = theme.possible, "?"
                     else:
-                        bg, text = theme.IMPOSSIBLE, "✘"
+                        bg, text = theme.impossible, "✘"
                     cell = tk.Label(sheet_frame, text=text, bg=bg, width=4, font=theme.body_font(9))
                     cell.grid(row=row, column=c, padx=1, pady=1, sticky="nsew")
                     cell.bind("<Button-1>", lambda e, card=card: app.open_explain(card))
@@ -124,7 +124,7 @@ def build(parent, app):
                             return f"Confirmed: {info['owner']}"
                         return "Still possible: " + ", ".join(sorted(info["possible"]))
 
-                    Tooltip(cell, tooltip_text)
+                    Tooltip(cell, tooltip_text, theme=theme)
                 row += 1
 
         if gs.is_solved():
@@ -157,20 +157,20 @@ def build(parent, app):
                     p = probs.get(card, {}).get(ENVELOPE, 0.0)
                     if p > best_p:
                         best_card, best_p = card, p
-                row_frame = tk.Frame(prob_inner, bg=theme.PANEL_BG)
+                row_frame = tk.Frame(prob_inner, bg=theme.panel_bg)
                 row_frame.pack(fill="x", pady=2)
                 tk.Label(
-                    row_frame, text=f"{title}:", bg=theme.PANEL_BG, font=theme.body_font(9), width=9, anchor="w"
+                    row_frame, text=f"{title}:", bg=theme.panel_bg, font=theme.body_font(9), width=9, anchor="w"
                 ).pack(side="left")
-                color = theme.CONFIRMED if best_p >= 0.999 else theme.TEXT
+                color = theme.confirmed if best_p >= 0.999 else theme.text
                 tk.Label(
                     row_frame, text=f"{best_card.name} ({best_p * 100:.0f}%)",
-                    bg=theme.PANEL_BG, font=theme.body_font(9), fg=color, anchor="w",
+                    bg=theme.panel_bg, font=theme.body_font(9), fg=color, anchor="w",
                 ).pack(side="left")
         except TooManyAmbiguousCardsError:
             tk.Label(
                 prob_inner, text="Not enough information yet for probabilities.",
-                bg=theme.PANEL_BG, font=theme.body_font(9), wraplength=280, justify="left",
+                bg=theme.panel_bg, font=theme.body_font(9), wraplength=280, justify="left",
             ).pack()
 
         stats = gs.last_solver_stats
