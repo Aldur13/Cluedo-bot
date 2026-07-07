@@ -15,6 +15,21 @@ BUNDLED_EDITIONS = {
     "classic_us": "classic_us.json",
 }
 
+# Board-movement data is bundled per edition, separately from the card-set
+# config above, since not every edition has a physical board mapped out yet.
+# Absence of an entry here means "no movement data for this edition" -- a
+# normal, expected state that callers (cluedo.movement.data) must handle
+# gracefully, not an error.
+_MOVEMENT_DATA_FILES = {
+    "swedish_2012": "movement_swedish_2012.json",
+}
+
+
+def movement_data_filename(edition_key: str) -> str | None:
+    """Bundled movement-data filename for this edition key, or None if no
+    board has been mapped out for it yet (e.g. classic_uk, classic_us)."""
+    return _MOVEMENT_DATA_FILES.get(edition_key)
+
 
 class ConfigError(ValueError):
     """Raised when a card-set config JSON is malformed or inconsistent."""

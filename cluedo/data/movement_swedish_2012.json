@@ -1,0 +1,20 @@
+{
+  "edition_key": "swedish_2012",
+  "hub": "hallway_core",
+  "distances_to_hub": {
+    "Badrummet": 3,
+    "Arbetsrummet": 4,
+    "Matsalen": 2,
+    "Spelrummet": 5,
+    "Garaget": 6,
+    "Sovrummet": 4,
+    "Vardagsrummet": 3,
+    "Köket": 5,
+    "Gården": 3
+  },
+  "secret_passages": [
+    ["Köket", "Garaget"],
+    ["Vardagsrummet", "Sovrummet"]
+  ],
+  "_comment": "distances_to_hub are BEST-EFFORT estimates from angled phone photos of the physical board, not measured tile counts. Edit any number here freely -- nothing else in the app needs to change. Secret passages are instant/no-roll moves per standard Cluedo rules (confirmed via handwritten 'Lonngang till...' notes on the physical board)."
+}

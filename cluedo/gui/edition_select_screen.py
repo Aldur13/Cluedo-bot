@@ -29,7 +29,7 @@ def build(parent, theme, on_selected):
             relief="raised",
             bd=1,
             cursor="hand2",
-            command=lambda k=key: on_selected(load_bundled_edition(k)),
+            command=lambda k=key: on_selected(load_bundled_edition(k), k),
         ).pack(pady=6)
 
     def choose_custom():
@@ -43,7 +43,7 @@ def build(parent, theme, on_selected):
         except ConfigError as exc:
             messagebox.showerror("Invalid card set", str(exc))
             return
-        on_selected(cfg)
+        on_selected(cfg, None)
 
     tk.Button(
         card_frame,

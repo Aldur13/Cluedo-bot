@@ -15,6 +15,11 @@ SOLVER_MODULES = [
     "cluedo/explain.py",
 ]
 
+# cluedo/movement/ is deliberately NOT in this list: movement/scoring.py
+# imports cluedo.advisor (one-way -- advisor.py itself stays untouched) to
+# combine board reachability with expected-info-gain scoring. Don't "fix"
+# this by adding movement/ here; that would break the intended dependency.
+
 FORBIDDEN_PREFIXES = ("cluedo.analysis", "cluedo.ml", "cluedo.persistence")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
