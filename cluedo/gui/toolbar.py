@@ -24,6 +24,7 @@ def build_toolbar(parent, app, theme) -> tk.Frame:
     make_button("Replay (Ctrl+R)", app.open_replay)
     make_button("What-If", app.open_whatif)
     make_button("Trends", app.open_graphs)
+    make_button("Review", app.open_game_review)
     make_button("Save (Ctrl+S)", app.save)
     make_button("Load (Ctrl+O)", app.load)
     make_button("Export", app.open_export)

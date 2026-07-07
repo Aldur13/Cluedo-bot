@@ -26,7 +26,7 @@ class _FakeApp:
         self.refresh_main_screen = lambda: None
         for name in (
             "open_suggestion_dialog", "undo", "open_timeline", "open_replay",
-            "open_whatif", "open_graphs", "save", "load", "open_export", "open_settings",
+            "open_whatif", "open_graphs", "open_game_review", "save", "load", "open_export", "open_settings",
         ):
             setattr(self, name, lambda: None)
 

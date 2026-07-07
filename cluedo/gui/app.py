@@ -1,12 +1,15 @@
+import time
 import tkinter as tk
 import uuid
 from tkinter import filedialog, messagebox
 
+from cluedo import __version__
 from cluedo.game import GameState, SaveFileError, default_autosave_path, load_game, save_game
 from cluedo.gui import (
     edition_select_screen,
     explain_dialog,
     export_dialog,
+    game_review_screen,
     graph_screen,
     hand_screen,
     main_screen,
@@ -24,7 +27,7 @@ from cluedo.persistence.player_store import PlayerStore
 class App:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Cluedo Deduction Assistant")
+        self.root.title(f"Cluedo Deduction Assistant v{__version__}")
         self.root.geometry("1150x760")
         self.root.minsize(950, 620)
 
@@ -41,6 +44,8 @@ class App:
         self.player_store = PlayerStore()
         self._game_id: str | None = None
         self._game_end_recorded = False
+        self._game_start_wall_clock: float | None = None
+        self._game_review_shown = False
 
         self._bind_shortcuts()
         if not self._maybe_offer_recovery():
@@ -96,10 +101,23 @@ class App:
             return
         self._game_id = uuid.uuid4().hex
         self._game_end_recorded = False
+        self._game_start_wall_clock = time.monotonic()
+        self._game_review_shown = False
         self.player_store.record_game_start(
             self._game_id, self.game_state.config.edition, self.game_state.players
         )
         self._sync_player_store()
+
+    def _game_review_time_played_seconds(self) -> "float | None":
+        """Elapsed wall-clock time since `_start_tracking_game()` began
+        tracking the current game, THIS session -- not a cumulative total
+        across save/load boundaries (the JSON save format carries no
+        timestamps, and adding them would be a save-format change; this is
+        an honest "how long have you been playing since you (re)opened this
+        game" figure instead, clearly labeled as such wherever it's shown)."""
+        if self._game_start_wall_clock is None:
+            return None
+        return time.monotonic() - self._game_start_wall_clock
 
     def _sync_player_store(self):
         """Mirrors the live GameState into `self.player_store`: every current
@@ -129,6 +147,7 @@ class App:
         self._autosave()
         self._sync_player_store()
         self.refresh_main_screen()
+        self._maybe_auto_open_review()
 
     def open_suggestion_dialog(self):
         if self.game_state:
@@ -152,6 +171,22 @@ class App:
 
     def open_settings(self):
         settings_screen.open_settings(self)
+
+    def open_game_review(self):
+        if self.game_state:
+            game_review_screen.open_game_review(self)
+
+    def _maybe_auto_open_review(self):
+        """After every completed game, automatically show the Game Review --
+        once per game (guarded the same way _game_end_recorded guards the
+        player_store write), not on every subsequent refresh."""
+        if self.game_state is None or self._game_review_shown or not self.game_state.is_solved():
+            return
+        self._game_review_shown = True
+        from cluedo.analysis.game_review import compute_game_review
+
+        review = compute_game_review(self.game_state, time_played_seconds=self._game_review_time_played_seconds())
+        game_review_screen.open_game_review(self, review=review)
 
     def open_explain(self, card):
         if self.game_state:

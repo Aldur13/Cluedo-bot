@@ -82,3 +82,56 @@ to a fixpoint, runs the bounded confirmation search, and checks for
 contradictions → on success, the candidate is adopted as the live state and
 the main screen refreshes its detective sheet, advisor panel, and probability
 panel from it.
+
+## Additions since the original split (analysis / persistence / review)
+
+Two new top-level packages sit alongside the solver core, both explicitly
+guarded by `tests/test_architecture_boundaries.py` from ever being imported
+back into `engine.py`/`probability.py`/`advisor.py`/`explain.py` — they are
+read-only consumers of the solver, never inputs to it:
+
+```
+cluedo/
+  analysis/
+    patterns.py       Rule-based per-player suggestion-pattern stats
+                       (redundancy, category-lock streaks, favorites).
+    strategy.py        Threshold classification on top of patterns.py
+                       (Room Hunter, Bluffer, Aggressive Eliminator, ...).
+    endgame.py          "Safe to accuse yet?" advisory -- never names a
+                       specific accusation before is_solved() is true.
+    game_review.py     Full post-game report (difficulty, grade, key
+                       turning point, missed opportunities, timeline,
+                       performance metrics). See
+                       docs/game_review_explained.md for every algorithm.
+  persistence/
+    player_store.py    Local SQLite cross-game history (opt-out via
+                       Settings), powering AI Insights across games.
+  timeseries.py         Pure per-turn series (valid worlds, info gain,
+                       confirmed-card count, envelope probability) computed
+                       from history.build_replay_snapshots -- no matplotlib
+                       import here; rendering lives in gui/graph_screen.py.
+  gui/
+    panels/            Reusable dashboard side-panels (best_suggestion,
+                       mystery_progress, envelope_probabilities,
+                       ai_insights, endgame, game_statistics), each a
+                       `build(parent, theme) -> Frame` with `.refresh(gs)`
+                       attached, composed by main_screen.py.
+    graph_screen.py     "Trends" Toplevel -- matplotlib (TkAgg) charts over
+                       timeseries.py output.
+    game_review_screen.py  "Game Review" Toplevel -- opens automatically
+                       once per solved game (App._maybe_auto_open_review),
+                       or manually via the toolbar.
+    game_review_export.py  PDF/HTML/Markdown/JSON export of a GameReview
+                       (matplotlib's headless "Agg" backend, not "TkAgg" --
+                       no Tk root required).
+    settings_screen.py  Theme picker (wires the pre-existing ThemeManager)
+                       + the cross-game learning opt-out toggle.
+```
+
+`App` (`gui/app.py`) owns a `PlayerStore` instance and a per-game `game_id`
+(a fresh `uuid4` assigned in `_start_tracking_game`, not persisted in the
+JSON save format -- cross-game history is a separate, optional local
+database, not part of a single game's save file). It also stamps a
+wall-clock start time for the *current session's* "time played" figure shown
+in Game Review; that figure is intentionally not part of the save format
+either, so old saves keep loading unchanged.

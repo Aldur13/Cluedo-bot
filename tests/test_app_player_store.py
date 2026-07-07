@@ -9,6 +9,12 @@ handful of attributes _start_tracking_game/_sync_player_store actually read
 (game_state, player_store, _game_id, _game_end_recorded) are set directly,
 and a fake in-memory store stands in for PlayerStore so each hook's call
 count can be asserted precisely.
+
+after_mutation() also calls _maybe_auto_open_review() (Game Review's
+auto-open-on-solve hook), which needs a real Tk root/theme_manager this file
+deliberately doesn't set up -- that hook has its own dedicated,
+Tk-root-using test file (tests/test_app_game_review.py), so it's stubbed to
+a no-op here to keep this file's scope to player_store plumbing only.
 """
 from cluedo.game import GameState
 from cluedo.gui.app import App
@@ -38,6 +44,7 @@ def _bare_app(game_state):
     app._game_id = None
     app._game_end_recorded = False
     app.refresh_main_screen = lambda: None
+    app._maybe_auto_open_review = lambda: None
     return app
 
 

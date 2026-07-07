@@ -3,10 +3,11 @@ import tkinter as tk
 from cluedo.history import build_replay_snapshots
 
 
-def open_replay(app):
+def open_replay(app, initial_index=None):
     gs = app.game_state
     theme = app.theme_manager.current
     snapshots = build_replay_snapshots(gs)
+    start_index = len(snapshots) - 1 if initial_index is None else max(0, min(initial_index, len(snapshots) - 1))
 
     win = tk.Toplevel(app.root)
     win.title("Replay")
@@ -38,7 +39,7 @@ def open_replay(app):
         command=lambda v: render(int(v)), bg=theme.bg,
     )
     slider.pack(fill="x", padx=12, pady=(0, 12))
-    slider.set(len(snapshots) - 1)
-    render(len(snapshots) - 1)
+    slider.set(start_index)
+    render(start_index)
 
     tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))
