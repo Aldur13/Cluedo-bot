@@ -12,6 +12,8 @@ import tkinter as tk
 
 from cluedo.advisor import rank_candidates_detailed
 from cluedo.analysis.live_stats import confidence_tier
+from cluedo.gui.scrollable_frame import build_scrollable_frame
+from cluedo.gui.window_geometry import fit_geometry
 
 
 def open_recommendation_simulator(app, detailed_candidate=None):
@@ -24,8 +26,12 @@ def open_recommendation_simulator(app, detailed_candidate=None):
 
     win = tk.Toplevel(app.root)
     win.title("Recommendation Simulator")
-    win.geometry("560x520")
+    fit_geometry(win, 560, 520)
     win.configure(bg=theme.bg)
+
+    # Packed first, side="bottom", so Close stays reachable regardless of
+    # how many outcome rows the scrollable list below grows to.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))
 
     tk.Label(
         win, text="Recommendation Simulator", font=theme.heading_font(16), bg=theme.bg, fg=theme.text,
@@ -36,7 +42,6 @@ def open_recommendation_simulator(app, detailed_candidate=None):
             win, text="No candidate suggestion available to simulate (game may already be solved).",
             bg=theme.bg, fg=theme.muted_text, font=theme.body_font(10),
         ).pack(anchor="w", padx=16, pady=12)
-        tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))
         return
 
     c = detailed_candidate.candidate
@@ -45,8 +50,8 @@ def open_recommendation_simulator(app, detailed_candidate=None):
         bg=theme.bg, fg=theme.text,
     ).pack(anchor="w", padx=16, pady=(0, 8))
 
-    list_area = tk.Frame(win, bg=theme.bg)
-    list_area.pack(fill="both", expand=True, padx=16)
+    scroll_outer, list_area = build_scrollable_frame(win, theme)
+    scroll_outer.pack(fill="both", expand=True, padx=16)
 
     if not detailed_candidate.outcomes:
         tk.Label(
@@ -87,5 +92,3 @@ def open_recommendation_simulator(app, detailed_candidate=None):
             tk.Label(
                 body, text=f"Likely solved: {names}", font=theme.body_font(9), bg=theme.panel_bg, fg=theme.accent,
             ).pack(anchor="w")
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

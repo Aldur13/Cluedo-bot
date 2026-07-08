@@ -4,8 +4,8 @@ trend chart, a clickable timeline (jumps into Replay), and export buttons.
 
 Follows the `open_X(app) -> Toplevel` convention every other screen in this
 package uses (timeline_screen.py, replay_screen.py, whatif_screen.py,
-graph_screen.py, settings_screen.py), and the scrollable-canvas pattern
-suggestion_dialog.py already established for long content.
+graph_screen.py, settings_screen.py), and `cluedo.gui.scrollable_frame`'s
+shared Canvas+Scrollbar idiom for the long, variable-height content.
 """
 from __future__ import annotations
 
@@ -25,6 +25,8 @@ from cluedo.gui.game_review_export import (
     export_review_markdown,
     export_review_pdf,
 )
+from cluedo.gui.scrollable_frame import build_scrollable_frame
+from cluedo.gui.window_geometry import fit_geometry
 
 _BAR_WIDTH = 320
 _BAR_HEIGHT = 16
@@ -43,8 +45,13 @@ def open_game_review(app, *, review: "GameReview | None" = None):
 
     win = tk.Toplevel(app.root)
     win.title("Game Review")
-    win.geometry("820x760")
+    fit_geometry(win, 820, 760)
     win.configure(bg=theme.bg)
+
+    # Packed first, side="bottom", so Close stays reachable regardless of
+    # how tall the dashboard gets -- the scrollable body (below) scrolls
+    # internally instead of pushing it off-screen.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(4, 12))
 
     header = tk.Frame(win, bg=theme.bg)
     header.pack(fill="x", padx=16, pady=(14, 6))
@@ -52,16 +59,8 @@ def open_game_review(app, *, review: "GameReview | None" = None):
         header, text="★★★★★ Game Review", font=theme.heading_font(18), bg=theme.bg, fg=theme.text,
     ).pack(anchor="w")
 
-    scroll_area = tk.Frame(win, bg=theme.bg)
-    scroll_area.pack(side="top", fill="both", expand=True)
-    canvas = tk.Canvas(scroll_area, bg=theme.bg, highlightthickness=0)
-    vscroll = tk.Scrollbar(scroll_area, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=vscroll.set)
-    vscroll.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
-    content = tk.Frame(canvas, bg=theme.bg)
-    canvas.create_window((0, 0), window=content, anchor="nw")
-    content.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    scroll_outer, content = build_scrollable_frame(win, theme)
+    scroll_outer.pack(fill="both", expand=True)
 
     _build_stat_cards(content, theme, review)
     _build_progress_bars(content, theme, review)
@@ -73,8 +72,6 @@ def open_game_review(app, *, review: "GameReview | None" = None):
     _build_timeline(content, theme, review, app)
     _build_feedback(content, theme, review)
     _build_export_row(content, theme, review)
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(4, 12))
 
 
 # ------------------------------------------------------------------- pieces

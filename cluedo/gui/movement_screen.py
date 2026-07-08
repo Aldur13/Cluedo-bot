@@ -14,6 +14,7 @@ import tkinter as tk
 from cluedo.gui import movement_edit_dialog
 from cluedo.gui.scrollable_frame import build_scrollable_frame
 from cluedo.gui.widgets import ChoiceGrid
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.movement.scoring import rank_rooms
 
 # Schematic layout (fractions of the canvas, NOT measured board coordinates)
@@ -63,8 +64,14 @@ def open_movement_screen(app):
 
     win = tk.Toplevel(app.root)
     win.title("Movement Strategy")
-    win.geometry("900x760")
+    fit_geometry(win, 900, 760)
     win.configure(bg=theme.bg)
+
+    # Packed first, side="bottom", so Close stays reachable on every code
+    # path below (including both early returns) regardless of how tall the
+    # rankings/reachability/simulator/board content gets -- the scrollable
+    # body scrolls internally instead of pushing it off-screen.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))
 
     header = tk.Frame(win, bg=theme.bg)
     header.pack(fill="x", padx=16, pady=(14, 4))
@@ -91,7 +98,6 @@ def open_movement_screen(app):
             win, text="No movement data for this edition yet.", font=theme.body_font(11),
             bg=theme.bg, fg=theme.muted_text,
         ).pack(anchor="w", padx=16, pady=(0, 10))
-        tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=10)
         return
 
     if gs.current_room is None:
@@ -99,7 +105,6 @@ def open_movement_screen(app):
             win, text="Set your current position in the Dice Analysis panel to see movement recommendations.",
             font=theme.body_font(11), bg=theme.bg, fg=theme.muted_text, wraplength=800, justify="left",
         ).pack(anchor="w", padx=16, pady=(0, 10))
-        tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=10)
         return
 
     scroll_outer, body = build_scrollable_frame(win, theme)
@@ -345,5 +350,3 @@ def open_movement_screen(app):
     roll_var.trace_add("write", lambda *_: _render_simulator())
 
     _refresh_all()
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

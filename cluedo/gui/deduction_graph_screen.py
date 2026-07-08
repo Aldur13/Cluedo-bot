@@ -16,6 +16,7 @@ import tkinter as tk
 from cluedo.explain import build_explanation_tree
 from cluedo.gui import replay_screen
 from cluedo.gui.scrollable_frame import build_scrollable_frame
+from cluedo.gui.window_geometry import fit_geometry
 
 _INDENT_PX = 22
 
@@ -26,8 +27,13 @@ def open_deduction_graph(app, card):
 
     win = tk.Toplevel(app.root)
     win.title(f"Deduction Graph — {card.name}")
-    win.geometry("640x600")
+    fit_geometry(win, 640, 600)
     win.configure(bg=theme.bg)
+
+    # Packed first, side="bottom", so Close stays reachable regardless of
+    # how tall the rendered tree gets -- the scrollable body (below) scrolls
+    # internally instead of pushing it off-screen.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))
 
     header = tk.Frame(win, bg=theme.bg)
     header.pack(fill="x", padx=16, pady=(14, 6))
@@ -44,7 +50,6 @@ def open_deduction_graph(app, card):
             content, text="No derivation is recorded for this card yet.", bg=theme.bg, fg=theme.muted_text,
             font=theme.body_font(10),
         ).pack(anchor="w", padx=16, pady=12)
-        tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))
         return
 
     tree = build_explanation_tree(explanation, gs.engine.explanations)
@@ -101,5 +106,3 @@ def open_deduction_graph(app, card):
             _render_node(children_container, child, depth + 1)
 
     _render_node(content, tree, 0)
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

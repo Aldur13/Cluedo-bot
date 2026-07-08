@@ -7,13 +7,14 @@ import tkinter as tk
 
 from cluedo import __version__
 from cluedo.gui.theme import BUILTIN_THEMES
+from cluedo.gui.window_geometry import fit_geometry
 
 
 def open_settings(app):
     theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title("Settings")
-    win.geometry("360x360")
+    fit_geometry(win, 360, 360)
     win.configure(bg=theme.bg)
 
     tk.Label(win, text="Theme", font=theme.heading_font(13), bg=theme.bg, fg=theme.text).pack(
@@ -71,4 +72,4 @@ def open_settings(app):
         win, text=f"Cluedo Deduction Assistant v{__version__}", font=theme.body_font(8), fg=theme.muted_text,
         bg=theme.bg,
     ).pack(side="bottom", pady=(0, 2))
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))

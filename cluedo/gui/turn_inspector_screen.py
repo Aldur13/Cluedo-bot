@@ -13,6 +13,7 @@ import tkinter as tk
 from cluedo.analysis.live_events import confirmed_card_events, owner_display_name
 from cluedo.explain import render_narrative
 from cluedo.gui.scrollable_frame import build_scrollable_frame
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.history import build_replay_snapshots
 from cluedo.models import ENVELOPE
 from cluedo.probability import TooManyAmbiguousCardsError
@@ -36,12 +37,20 @@ def open_turn_inspector(app, turn_index: "int | None" = None):
 
     win = tk.Toplevel(app.root)
     win.title("Turn Inspector")
-    win.geometry("760x680")
+    fit_geometry(win, 760, 680)
     win.configure(bg=theme.bg)
+
+    # Packed first, side="bottom", so Close stays reachable regardless of
+    # how tall a turn's rendered detail gets -- the scrollable body (below)
+    # scrolls internally instead of pushing it off-screen.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))
 
     header = tk.Frame(win, bg=theme.bg)
     header.pack(fill="x", padx=16, pady=(14, 4))
     tk.Label(header, text="Turn Inspector", font=theme.heading_font(18), bg=theme.bg, fg=theme.text).pack(anchor="w")
+
+    nav = tk.Frame(win, bg=theme.bg)
+    nav.pack(fill="x", padx=16, pady=(0, 10))
 
     scroll_outer, content = build_scrollable_frame(win, theme)
     scroll_outer.pack(fill="both", expand=True, padx=4, pady=(0, 4))
@@ -127,9 +136,6 @@ def open_turn_inspector(app, turn_index: "int | None" = None):
             else:
                 _line("  (nothing confirmed yet)", fg=theme.muted_text)
 
-    nav = tk.Frame(win, bg=theme.bg)
-    nav.pack(fill="x", padx=16, pady=(0, 10))
-
     state = {"index": turn_index}
 
     def _go(delta):
@@ -147,5 +153,3 @@ def open_turn_inspector(app, turn_index: "int | None" = None):
     tk.Button(nav, text="Next ▶", font=theme.body_font(9), command=lambda: _go(1)).pack(side="left")
 
     _render(turn_index)
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

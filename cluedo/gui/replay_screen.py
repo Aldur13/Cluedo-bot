@@ -12,6 +12,7 @@ import tkinter as tk
 
 from cluedo.analysis.game_review import compute_game_review
 from cluedo.analysis.live_events import confirmed_card_events
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.history import build_replay_snapshots
 from cluedo.models import ENVELOPE, CardType
 from cluedo.probability import TooManyAmbiguousCardsError
@@ -32,15 +33,20 @@ def open_replay(app, initial_index=None):
 
     win = tk.Toplevel(app.root)
     win.title("Replay")
-    win.geometry("560x600")
+    fit_geometry(win, 560, 600)
     win.configure(bg=theme.bg)
 
     tk.Label(win, text="Scrub through the game turn by turn", font=theme.heading_font(13), bg=theme.bg).pack(
         anchor="w", padx=12, pady=(12, 4)
     )
 
+    # Created here (so `render` below can close over it) but *packed* only
+    # at the very end of this function, after the slider/jump/close group --
+    # this widget is the one that fills leftover space with
+    # fill="both", expand=True, and packing an expand=True widget before
+    # its bottom-anchored siblings can starve them of any actual height
+    # once the window's content genuinely overflows the available space.
     label = tk.Label(win, text="", font=theme.body_font(10), justify="left", anchor="nw", bg=theme.panel_bg)
-    label.pack(fill="both", expand=True, padx=12, pady=8)
 
     def render(index):
         snap = snapshots[index].game_state
@@ -86,10 +92,8 @@ def open_replay(app, initial_index=None):
         win, from_=0, to=max(0, len(snapshots) - 1), orient="horizontal", label="Turn",
         command=lambda v: render(int(v)), bg=theme.bg,
     )
-    slider.pack(fill="x", padx=12, pady=(0, 6))
 
     jump_row = tk.Frame(win, bg=theme.bg)
-    jump_row.pack(fill="x", padx=12, pady=(0, 8))
 
     def _jump(delta):
         current = slider.get()
@@ -104,7 +108,12 @@ def open_replay(app, initial_index=None):
         side="left", padx=(6, 0)
     )
 
+    # Packed bottom-up (Close first, so it ends up truly at the bottom),
+    # then the expand=True label last -- see the comment on `label` above.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))
+    jump_row.pack(side="bottom", fill="x", padx=12, pady=(0, 8))
+    slider.pack(side="bottom", fill="x", padx=12, pady=(0, 6))
+    label.pack(fill="both", expand=True, padx=12, pady=8)
+
     slider.set(start_index)
     render(start_index)
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

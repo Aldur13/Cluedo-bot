@@ -3,6 +3,7 @@ import tkinter as tk
 from cluedo.engine import ContradictionError
 from cluedo.gui.suggestion_dialog import _default_suggester_seat, _last_choice
 from cluedo.gui.widgets import ChoiceGrid
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.history import whatif_game_state
 from cluedo.models import Suggestion, SuggestionResponse
 
@@ -12,7 +13,7 @@ def open_whatif(app):
     theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title("What-If")
-    win.geometry("480x600")
+    fit_geometry(win, 480, 600)
     win.configure(bg=theme.bg)
 
     tk.Label(
@@ -110,8 +111,15 @@ def open_whatif(app):
                 lines.append("Would not confirm anything new yet.")
         result_label.config(text="\n".join(lines))
 
+    # `before=result_label` matters: result_label is packed with
+    # fill="both", expand=True, so appending these after it (a plain
+    # trailing pack()) can starve them of any actual height -- inserting
+    # them back before result_label in the packer's slave order is what
+    # actually reserves their space.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(
+        side="bottom", pady=(0, 10), before=result_label
+    )
     tk.Button(
         win, text="Simulate", bg=theme.accent, fg="white", font=theme.body_font(10), padx=14, pady=6,
         command=run_whatif,
-    ).pack(pady=8)
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))
+    ).pack(side="bottom", pady=8, before=result_label)

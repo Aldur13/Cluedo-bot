@@ -12,6 +12,8 @@ from __future__ import annotations
 import tkinter as tk
 
 from cluedo.advisor import rank_candidates_detailed
+from cluedo.gui.scrollable_frame import build_scrollable_frame
+from cluedo.gui.window_geometry import fit_geometry
 
 _STAR_COUNT = 5
 _FILLED_STAR = "★"  # ★
@@ -38,8 +40,12 @@ def open_suggestion_comparison(app):
 
     win = tk.Toplevel(app.root)
     win.title("Suggestion Comparison")
-    win.geometry("700x600")
+    fit_geometry(win, 700, 600)
     win.configure(bg=theme.bg)
+
+    # Packed first, side="bottom", so Close stays reachable regardless of
+    # how many candidate rows the scrollable list below grows to.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))
 
     tk.Label(
         win, text="Suggestion Comparison", font=theme.heading_font(16), bg=theme.bg, fg=theme.text,
@@ -52,14 +58,16 @@ def open_suggestion_comparison(app):
             win, text="No candidate suggestions available (game may already be solved).",
             bg=theme.bg, fg=theme.muted_text, font=theme.body_font(10),
         ).pack(anchor="w", padx=16, pady=12)
-        tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))
         return
 
-    list_area = tk.Frame(win, bg=theme.bg)
-    list_area.pack(fill="both", expand=True, padx=16, pady=(0, 6))
-
+    # Also packed side="bottom" (before the scrollable list below), so the
+    # comparison panel stays reachable too instead of being starved of
+    # space by the list's fill="both", expand=True claim.
     compare_area = tk.Frame(win, bg=theme.bg)
-    compare_area.pack(fill="x", padx=16, pady=(0, 10))
+    compare_area.pack(side="bottom", fill="x", padx=16, pady=(0, 10))
+
+    scroll_outer, list_area = build_scrollable_frame(win, theme)
+    scroll_outer.pack(fill="both", expand=True, padx=16, pady=(0, 6))
 
     selected = []
     check_vars = []
@@ -152,5 +160,3 @@ def open_suggestion_comparison(app):
         ).pack(anchor="w")
 
     _render_compare()
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))
