@@ -65,7 +65,11 @@ cluedo/
                    import cluedo.advisor -- the one-way dependency (movement
                    -> advisor, never the reverse) is why it's deliberately
                    NOT added to tests/test_architecture_boundaries.py's
-                   SOLVER_MODULES list.
+                   SOLVER_MODULES list. Player-corrected board data (v4.6.5+,
+                   gui/movement_edit_dialog.py) is saved outside the bundled
+                   data dir entirely -- see docs/json_schemas.md's "User
+                   corrections" section for why the onefile .exe build makes
+                   that necessary, not optional.
 ```
 
 ## The atomic-mutation pattern

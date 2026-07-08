@@ -262,6 +262,14 @@ class App:
             self._movement_graph_cache_key = self._edition_key
         return self._movement_graph_cache
 
+    def invalidate_movement_graph(self):
+        """Forces the next current_movement_graph() call to rebuild from
+        disk -- called after the Edit Board Data dialog saves or resets a
+        user override, so corrected distances/passages take effect
+        immediately instead of waiting for a fresh edition switch."""
+        self._movement_graph_cache = None
+        self._movement_graph_cache_key = None
+
     def undo(self):
         if self.game_state and self.game_state.history:
             self.game_state.undo_last_suggestion()
