@@ -16,12 +16,11 @@ from __future__ import annotations
 import tkinter as tk
 
 from cluedo.gui import sidebar_state
+from cluedo.gui.envelope_rendering import render_probability_row
 from cluedo.gui.widgets import CollapsibleCard
 from cluedo.models import ENVELOPE, CardType
 from cluedo.probability import TooManyAmbiguousCardsError
 
-_BAR_WIDTH = 130
-_BAR_HEIGHT = 12
 _TOP_N_DEFAULT = 3
 _CARD_KEY = "envelope_analysis"
 
@@ -56,24 +55,6 @@ def build(parent, theme, app) -> tk.Frame:
     list_area.pack(fill="x")
 
     show_all_button = tk.Button(body, text="Show All", font=theme.body_font(8))
-
-    def _bar_color(p: float) -> str:
-        if p >= 0.999:
-            return theme.confirmed
-        return theme.accent
-
-    def _render_row(container, name: str, p: float) -> None:
-        row = tk.Frame(container, bg=theme.panel_bg)
-        row.pack(fill="x", pady=1)
-        tk.Label(
-            row, text=name, bg=theme.panel_bg, fg=theme.text, font=theme.body_font(9), width=14, anchor="w",
-        ).pack(side="left")
-        canvas = tk.Canvas(row, width=_BAR_WIDTH, height=_BAR_HEIGHT, bg=theme.unknown, highlightthickness=0)
-        canvas.pack(side="left", padx=(4, 6))
-        canvas.create_rectangle(0, 0, _BAR_WIDTH * max(0.0, min(1.0, p)), _BAR_HEIGHT, fill=_bar_color(p), width=0)
-        tk.Label(
-            row, text=f"{p * 100:.0f}%", bg=theme.panel_bg, fg=theme.text, font=theme.body_font(9), width=5,
-        ).pack(side="left")
 
     def _show_all_key(tab_name: str) -> str:
         return f"{_CARD_KEY}.show_all.{tab_name}"
@@ -112,7 +93,14 @@ def build(parent, theme, app) -> tk.Frame:
         visible = cards if show_all else cards[:_TOP_N_DEFAULT]
         for candidate_card in visible:
             p = probs.get(candidate_card, {}).get(ENVELOPE, 0.0)
-            _render_row(list_area, candidate_card.name, p)
+            row = render_probability_row(list_area, theme, candidate_card.name, p)
+            # Click any row to see the real derivation chain behind that
+            # card's probability (Probability Breakdown, spec item 9) --
+            # only meaningful once something is actually known about it.
+            if hasattr(app, "open_explain"):
+                row.bind("<Button-1>", lambda _e, c=candidate_card: app.open_explain(c))
+                for child in row.winfo_children():
+                    child.bind("<Button-1>", lambda _e, c=candidate_card: app.open_explain(c))
 
         if len(cards) > _TOP_N_DEFAULT:
             show_all_button.config(

@@ -95,3 +95,35 @@ def full_derivation_chain(explanation: Explanation, registry: ExplanationRegistr
 
 def render_narrative(explanation: Explanation) -> list[str]:
     return list(explanation.narrative)
+
+
+@dataclass(frozen=True)
+class ExplanationNode:
+    """A real nested restructuring of the same DFS walk `full_derivation_chain`
+    already performs -- that function flattens premise/sub-explanation links
+    into one list in visitation order; this preserves the actual parent/child
+    structure (a premise fact's own `Explanation`, if it has one, becomes a
+    child node) for callers that need to render/expand it as a tree (the
+    Deduction Graph) rather than just a linear chain."""
+
+    explanation: Explanation
+    children: tuple["ExplanationNode", ...]
+
+
+def build_explanation_tree(explanation: Explanation, registry: ExplanationRegistry) -> ExplanationNode:
+    """Same cycle-guard as `full_derivation_chain` (a card's explanation is
+    expanded into a child node at most once per path), but returns the
+    nested tree instead of a flattened list."""
+    seen: set[Card] = set()
+
+    def walk(exp: Explanation) -> ExplanationNode:
+        seen.add(exp.conclusion.card)
+        children = []
+        for premise in exp.premises:
+            if premise.card is not None and premise.card not in seen:
+                sub = registry.explanation_for(premise.card)
+                if sub is not None:
+                    children.append(walk(sub))
+        return ExplanationNode(exp, tuple(children))
+
+    return walk(explanation)

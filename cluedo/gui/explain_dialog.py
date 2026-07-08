@@ -1,4 +1,16 @@
+"""Explain dialog: click any confirmed card to see the full logical
+derivation chain that confirmed it, not just its top-level fact -- rendered
+as a linear arrow chain (`full_derivation_chain`, already exact, DFS order:
+conclusion first, down through the facts that forced it). For a card whose
+derivation branches (a fact with more than one premise, each with its own
+sub-derivation), "Open Deduction Graph" opens the full expandable tree view.
+Never invents reasoning -- every line is a real `Fact.label` already
+recorded by the engine's `ExplanationRegistry`.
+"""
 import tkinter as tk
+
+from cluedo.explain import full_derivation_chain
+from cluedo.gui import deduction_graph_screen
 
 
 def open_explain(app, card):
@@ -6,22 +18,31 @@ def open_explain(app, card):
     theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title(f"Why: {card.name}")
-    win.geometry("440x340")
+    win.geometry("460x420")
     win.configure(bg=theme.bg)
 
     explanation = gs.explain_card(card)
+    show_graph_button = False
     if explanation is None:
         info = gs.detective_sheet()[card]
         text = f"{card.name} is not yet confirmed.\n\nStill possible: {', '.join(sorted(info['possible']))}"
     else:
-        lines = [f"{card.name} is confirmed because:"]
-        for line in explanation.narrative[:-1]:
-            lines.append(f"  • {line}")
-        lines.append("")
-        lines.append(explanation.narrative[-1])
+        chain = full_derivation_chain(explanation, gs.engine.explanations)
+        lines = [f"{card.name} confirmed"]
+        for exp in chain:
+            lines.append("↓")
+            lines.append(exp.conclusion.label)
         text = "\n".join(lines)
+        show_graph_button = any(len(exp.premises) > 1 for exp in chain)
 
     tk.Label(
-        win, text=text, justify="left", wraplength=400, font=theme.body_font(10), bg=theme.bg, anchor="nw"
+        win, text=text, justify="left", wraplength=420, font=theme.body_font(10), bg=theme.bg, anchor="nw"
     ).pack(padx=16, pady=16, anchor="w", fill="both", expand=True)
+
+    if show_graph_button:
+        tk.Button(
+            win, text="Open Deduction Graph", font=theme.body_font(9),
+            command=lambda: deduction_graph_screen.open_deduction_graph(app, card),
+        ).pack(pady=(0, 4))
+
     tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 12))

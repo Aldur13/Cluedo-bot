@@ -190,13 +190,25 @@ def test_recently_changed_highlight_after_undo_is_empty(root, cfg, cards_by_name
         frame.destroy()
 
 
+def _all_buttons(widget):
+    """Recursively collects every tk.Button under `widget` -- the toolbar
+    wraps its buttons across two row sub-frames (see toolbar.py), so a flat
+    winfo_children() scan would miss them."""
+    buttons = []
+    if isinstance(widget, tk.Button):
+        buttons.append(widget)
+    for child in widget.winfo_children():
+        buttons.extend(_all_buttons(child))
+    return buttons
+
+
 @pytest.mark.parametrize("theme", [LIGHT, DARK, HIGH_CONTRAST])
 def test_build_toolbar_renders_without_error(root, theme):
     app = _FakeApp()
     toolbar = build_toolbar(root, app, theme)
     try:
         assert isinstance(toolbar, tk.Frame)
-        buttons = [w for w in toolbar.winfo_children() if isinstance(w, tk.Button)]
+        buttons = _all_buttons(toolbar)
         assert len(buttons) == 17
         labels = {b.cget("text") for b in buttons}
         assert labels == {
