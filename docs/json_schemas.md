@@ -116,3 +116,31 @@ passages) — see `cluedo/movement/graph.py` for the shortest-path
 computation. This keeps the topology data honest about what's actually
 known (rooms open onto one shared hallway) without inventing room-to-room
 adjacency that was never confirmed.
+
+### User corrections (v4.6.5+)
+
+The bundled numbers above are photo-derived best-effort estimates, not
+measured tile counts. Rather than hand-editing the bundled JSON, the
+in-app **Movement Strategy → Edit Board Data** dialog lets the player
+correct any distance or add/remove a secret passage directly; saving
+writes the *same schema* to a separate, durable per-user file:
+
+```
+%APPDATA%\CluedoAssistant\movement_overrides\<edition_key>.json
+```
+
+(`cluedo.movement.data.override_path`, mirroring how
+`cluedo.game.default_autosave_path` already keeps the autosave outside the
+installed app.) This location matters because the packaged `.exe` is a
+PyInstaller **onefile** build — `CluedoAssistant.spec` hands `EXE()` the
+analysis's `binaries`/`datas` directly rather than routing them through
+`COLLECT()`, so the bundled `cluedo/data/*.json` is extracted into a
+temporary `_MEI*` directory that's deleted when the process exits. Writing
+a correction back into that bundled copy would silently vanish the next
+time the app runs; `%APPDATA%` survives across runs.
+
+`cluedo.movement.data.load_movement_data` checks the override file first
+and falls back to the bundled default if none exists — an edition with no
+bundled file at all can still have movement/dice features once a user
+override is saved for it. "Reset to Bundled Defaults" in the dialog just
+deletes this override file (`delete_override`).

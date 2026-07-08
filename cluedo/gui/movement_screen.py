@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from cluedo.gui import movement_edit_dialog
 from cluedo.gui.scrollable_frame import build_scrollable_frame
 from cluedo.gui.widgets import ChoiceGrid
 from cluedo.movement.scoring import rank_rooms
@@ -65,9 +66,25 @@ def open_movement_screen(app):
     win.geometry("900x760")
     win.configure(bg=theme.bg)
 
+    header = tk.Frame(win, bg=theme.bg)
+    header.pack(fill="x", padx=16, pady=(14, 4))
     tk.Label(
-        win, text="Movement Strategy", font=theme.heading_font(18), bg=theme.bg, fg=theme.text,
-    ).pack(anchor="w", padx=16, pady=(14, 4))
+        header, text="Movement Strategy", font=theme.heading_font(18), bg=theme.bg, fg=theme.text,
+    ).pack(side="left")
+
+    def _reopen():
+        # Simplest correct way to reflect a saved/reset board-data edit:
+        # close this snapshot and rebuild a fresh one from the (now
+        # invalidated) graph, rather than threading a live-refresh path
+        # through both of this screen's early-return branches.
+        win.destroy()
+        app.open_movement_screen()
+
+    if graph is not None:
+        tk.Button(
+            header, text="Edit Board Data", font=theme.body_font(9),
+            command=lambda: movement_edit_dialog.open_movement_edit_dialog(app, on_saved=_reopen),
+        ).pack(side="right")
 
     if graph is None:
         tk.Label(
