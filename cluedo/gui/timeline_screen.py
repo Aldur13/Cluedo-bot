@@ -1,6 +1,7 @@
 import tkinter as tk
 
 from cluedo.gui import suggestion_dialog
+from cluedo.gui.window_geometry import fit_geometry
 
 
 def open_timeline(app):
@@ -8,7 +9,7 @@ def open_timeline(app):
     theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title("Timeline")
-    win.geometry("560x420")
+    fit_geometry(win, 560, 420)
     win.configure(bg=theme.bg)
 
     tk.Label(win, text="Suggestion history", font=theme.heading_font(13), bg=theme.bg).pack(
@@ -19,6 +20,8 @@ def open_timeline(app):
     listbox.pack(fill="both", expand=True, padx=12, pady=(0, 8))
 
     def refresh():
+        if not win.winfo_exists():
+            return
         listbox.delete(0, "end")
         for i, s in enumerate(gs.history, start=1):
             suggester = gs.players[s.suggester_seat].name
@@ -40,8 +43,14 @@ def open_timeline(app):
         if not sel:
             return
         suggestion = gs.history[sel[0]]
-        suggestion_dialog.open_dialog(app, edit_suggestion=suggestion)
-        win.after(150, refresh)
+        dialog = suggestion_dialog.open_dialog(app, edit_suggestion=suggestion)
+        if dialog is not None:
+            # Refresh once the edit dialog actually closes (committed or
+            # canceled) -- a fixed after()-delay fired while the dialog was
+            # still open, so the list never reflected the committed edit.
+            # A <Destroy> binding on a Toplevel also fires for every
+            # descendant widget, hence the e.widget check.
+            dialog.bind("<Destroy>", lambda e: refresh() if e.widget is dialog else None, add="+")
 
     def delete_selected():
         sel = listbox.curselection()
@@ -52,8 +61,13 @@ def open_timeline(app):
         app.after_mutation()
         refresh()
 
+    # `before=listbox` matters: listbox is packed with fill="both",
+    # expand=True, so appending btns after it (a plain trailing pack()) can
+    # starve it of any actual height once the history list overflows --
+    # inserting it back before listbox in the packer's slave order is what
+    # actually reserves its space.
     btns = tk.Frame(win, bg=theme.bg)
-    btns.pack(pady=(0, 10))
+    btns.pack(side="bottom", pady=(0, 10), before=listbox)
     tk.Button(btns, text="Edit selected", command=edit_selected, font=theme.body_font(10)).pack(
         side="left", padx=6
     )

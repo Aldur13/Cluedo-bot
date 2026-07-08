@@ -98,6 +98,47 @@ def test_replay_snapshots_match_direct_rebuild(cfg, cards_by_name, three_players
         assert snapshots[-1].game_state.engine.owner_of(card) == gs.engine.owner_of(card)
 
 
+def test_replay_snapshots_are_cached_per_mutation(cfg, cards_by_name, three_players, monkeypatch):
+    gs = _basic_game(cfg, cards_by_name, three_players)
+    gs.record_suggestion(
+        0, cards_by_name["Reverend Green"], cards_by_name["Rope"], cards_by_name["Kitchen"],
+        [SuggestionResponse(1, "no_show"), SuggestionResponse(2, "no_show")],
+    )
+
+    first = build_replay_snapshots(gs)
+
+    # Second call for the same (GameState, mutation_seq) must not replay
+    # anything -- from_history raising here proves nothing was rebuilt.
+    def _boom(*args, **kwargs):
+        raise AssertionError("cached call should not rebuild snapshots")
+
+    monkeypatch.setattr(GameState, "from_history", _boom)
+    second = build_replay_snapshots(gs)
+    assert [s.game_state for s in second] == [s.game_state for s in first]
+    # Each caller gets its own list object (safe to filter/sort in place).
+    assert second is not first
+    monkeypatch.undo()
+
+    # A mutation invalidates the cache: the new final snapshot reflects it.
+    gs.record_suggestion(
+        1, cards_by_name["Professor Plum"], cards_by_name["Wrench"], cards_by_name["Study"],
+        [SuggestionResponse(2, "shown_unseen")],
+    )
+    rebuilt = build_replay_snapshots(gs)
+    assert len(rebuilt) == 3
+    assert len(rebuilt[-1].game_state.history) == 2
+
+
+def test_replay_snapshot_cache_does_not_leak_across_game_states(cfg, cards_by_name, three_players):
+    gs_a = _basic_game(cfg, cards_by_name, three_players)
+    gs_b = GameState(cfg, three_players, user_seat=0)
+    gs_b.set_user_hand([cards_by_name["Mrs. Peacock"]])
+
+    snaps_a = build_replay_snapshots(gs_a)
+    snaps_b = build_replay_snapshots(gs_b)
+    assert snaps_a[0].game_state._initial_hand != snaps_b[0].game_state._initial_hand
+
+
 def test_whatif_does_not_mutate_live_state(cfg, cards_by_name, three_players):
     gs = _basic_game(cfg, cards_by_name, three_players)
     history_before = list(gs.history)

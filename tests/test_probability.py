@@ -10,6 +10,7 @@ from cluedo.probability import (
     capacity_key,
     compute_probabilities,
     full_probabilities,
+    probability_of_response_outcome,
 )
 
 
@@ -117,6 +118,89 @@ def test_full_probabilities_gives_confirmed_cards_probability_one():
     for card in cards:
         if card != s1:
             assert sum(result[card].values()) == pytest.approx(1.0)
+
+
+def _first_shower_oracle(ambiguous, capacities, confirmed, trio, responder_order):
+    """Brute-force P(responder shows first) over exactly-filled assignments."""
+    tally = {r: 0 for r in responder_order}
+    tally["no_show"] = 0
+    total = 0
+    for assignment in itertools.product(*[ac.domain for ac in ambiguous]):
+        owner_of = dict(zip((ac.card for ac in ambiguous), assignment))
+        counts = {}
+        for card, owner in owner_of.items():
+            key = capacity_key(owner, card.type)
+            counts[key] = counts.get(key, 0) + 1
+        if not all(counts.get(key, 0) == cap for key, cap in capacities.items()):
+            continue
+        owner_of.update(confirmed)
+        total += 1
+        for responder in responder_order:
+            if any(owner_of[c] == responder for c in trio):
+                tally[responder] += 1
+                break
+        else:
+            tally["no_show"] += 1
+    return {k: v / total for k, v in tally.items()}
+
+
+def test_response_outcome_confirmed_late_responder_does_not_preempt_earlier_ones():
+    """A card confirmed to a responder later in the order guarantees no_show=0,
+    but an earlier responder may still show one of their own ambiguous cards
+    first -- the confirmed responder must NOT get probability 1.0 outright."""
+    a, b = "seat_1", "seat_2"
+    suspect = Card("suspect", CardType.SUSPECT)
+    weapon = Card("weapon", CardType.WEAPON)
+    room = Card("room", CardType.ROOM)
+    extras = [Card("s2", CardType.SUSPECT), Card("w2", CardType.WEAPON),
+              Card("r2", CardType.ROOM), Card("r3", CardType.ROOM)]
+
+    # room is confirmed to b; the remaining six cards fill capacities exactly.
+    ambiguous = tuple(
+        AmbiguousCard(c, (a, b, ENVELOPE)) for c in [suspect, weapon] + extras
+    )
+    capacities = {
+        a: 2,
+        b: 1,
+        capacity_key(ENVELOPE, CardType.SUSPECT): 1,
+        capacity_key(ENVELOPE, CardType.WEAPON): 1,
+        capacity_key(ENVELOPE, CardType.ROOM): 1,
+    }
+    ci = CountingInput(ambiguous=ambiguous, capacities=capacities, at_least_one=())
+    trio = (suspect, weapon, room)
+
+    dist = probability_of_response_outcome(ci, {room: b}, suspect, weapon, room, [a, b])
+    oracle = _first_shower_oracle(ambiguous, capacities, {room: b}, trio, [a, b])
+
+    assert dist["no_show"] == pytest.approx(0.0)
+    assert dist[a] == pytest.approx(oracle[a])
+    assert dist[b] == pytest.approx(oracle[b])
+    assert 0.0 < dist[a] < 1.0
+
+
+def test_response_outcome_confirmed_first_responder_shows_certainly():
+    a, b = "seat_1", "seat_2"
+    suspect = Card("suspect", CardType.SUSPECT)
+    weapon = Card("weapon", CardType.WEAPON)
+    room = Card("room", CardType.ROOM)
+    extras = [Card("s2", CardType.SUSPECT), Card("w2", CardType.WEAPON),
+              Card("r2", CardType.ROOM), Card("r3", CardType.ROOM)]
+    ambiguous = tuple(
+        AmbiguousCard(c, (a, b, ENVELOPE)) for c in [suspect, weapon] + extras
+    )
+    capacities = {
+        a: 2,
+        b: 1,
+        capacity_key(ENVELOPE, CardType.SUSPECT): 1,
+        capacity_key(ENVELOPE, CardType.WEAPON): 1,
+        capacity_key(ENVELOPE, CardType.ROOM): 1,
+    }
+    ci = CountingInput(ambiguous=ambiguous, capacities=capacities, at_least_one=())
+
+    dist = probability_of_response_outcome(ci, {room: a}, suspect, weapon, room, [a, b])
+    assert dist[a] == pytest.approx(1.0)
+    assert dist[b] == pytest.approx(0.0)
+    assert dist["no_show"] == pytest.approx(0.0)
 
 
 def test_probability_engine_stays_fast_on_realistic_state(cfg, cards_by_name, three_players):

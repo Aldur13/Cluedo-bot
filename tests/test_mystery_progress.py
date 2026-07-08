@@ -150,3 +150,33 @@ def test_unexpected_exception_is_not_silently_swallowed(cfg, monkeypatch):
 
     with pytest.raises(ValueError):
         mp._p_candidate_solves(gs, suspect, weapon, room)
+
+
+def test_mystery_progress_is_cached_per_mutation(cfg, cards_by_name, three_players, monkeypatch):
+    gs = GameState(cfg, three_players, user_seat=0)
+    hand = ["Miss Scarlett", "Colonel Mustard", "Mrs. White", "Candlestick", "Knife", "Lead Pipe"]
+    gs.set_user_hand([cards_by_name[n] for n in hand])
+
+    first = compute_mystery_progress(gs)
+
+    # Same (GameState, mutation_seq) must not recompute -- the chance
+    # estimate is the most expensive derived figure in the app.
+    import cluedo.mystery_progress as mp
+
+    def _boom(_gs):
+        raise AssertionError("cached call should not recompute solve chance")
+
+    monkeypatch.setattr(mp, "_chance_of_solving_next_turn", _boom)
+    assert compute_mystery_progress(gs) is first
+    monkeypatch.undo()
+
+    # Any mutation invalidates: recomputed against the new state.
+    from cluedo.models import SuggestionResponse
+
+    gs.record_suggestion(
+        1, cards_by_name["Reverend Green"], cards_by_name["Rope"], cards_by_name["Kitchen"],
+        [SuggestionResponse(2, "no_show"), SuggestionResponse(0, "no_show")],
+    )
+    updated = compute_mystery_progress(gs)
+    assert updated is not first
+    assert updated.turns_played == 1

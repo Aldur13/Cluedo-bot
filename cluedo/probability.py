@@ -275,15 +275,15 @@ def probability_of_response_outcome(
     """
     trio = (suspect, weapon, room)
 
-    # If any of the trio is already confirmed to one of the responders, that
-    # responder is certain to show (short-circuit, no DP needed).
+    # First responder in order confirmed to hold one of the trio: they are
+    # certain to show *if reached*, but responders earlier in the order may
+    # still show one of their own (ambiguous) cards first, so this only caps
+    # the chain -- it doesn't make that responder's probability 1.0 outright.
+    guaranteed_index = None
     for i, responder in enumerate(responder_order):
-        for card in trio:
-            if confirmed_owner_of.get(card) == responder:
-                dist = {r: 0.0 for r in responder_order}
-                dist[responder] = 1.0
-                dist["no_show"] = 0.0
-                return dist
+        if any(confirmed_owner_of.get(card) == responder for card in trio):
+            guaranteed_index = i
+            break
 
     total = count_worlds(ci)
     if total == 0:
@@ -299,9 +299,16 @@ def probability_of_response_outcome(
             restricted = _exclude_owner_for_cards(restricted, responder, trio)
         return count_worlds(restricted) / total
 
-    f_values = [f(k) for k in range(len(responder_order) + 1)]
-    dist = {}
-    for i, responder in enumerate(responder_order):
-        dist[responder] = max(0.0, f_values[i] - f_values[i + 1])
-    dist["no_show"] = f_values[-1]
+    last = len(responder_order) if guaranteed_index is None else guaranteed_index
+    f_values = [f(k) for k in range(last + 1)]
+    dist = {r: 0.0 for r in responder_order}
+    for i in range(last):
+        dist[responder_order[i]] = max(0.0, f_values[i] - f_values[i + 1])
+    if guaranteed_index is None:
+        dist["no_show"] = f_values[-1]
+    else:
+        # Confirmed cards aren't in ci.ambiguous, so the DP can't see them;
+        # everything not shown by an earlier responder lands here.
+        dist[responder_order[guaranteed_index]] = f_values[last]
+        dist["no_show"] = 0.0
     return dist

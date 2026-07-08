@@ -15,6 +15,7 @@ counting remaining worlds).
 """
 from __future__ import annotations
 
+import weakref
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
@@ -107,14 +108,29 @@ def _chance_of_solving_next_turn(game_state: "GameState") -> Optional[float]:
     return sum(per_candidate) / len(per_candidate)
 
 
+# GameState -> (mutation_seq, MysteryProgress). Weak keys so entries die with
+# their GameState (same pattern as history._snapshot_cache, for the same
+# reason). Two dashboard cards (Mystery Progress and Live Stats) both request
+# this on every refresh, and the chance-of-solving estimate is the single most
+# expensive derived figure in the app (top-3 advisor candidates x every
+# possible responder outcome, each a full whatif replay) -- computing it once
+# per mutation instead of once per consumer is a >1s saving per logged
+# suggestion in a mid-game 4-player session.
+_progress_cache: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
+
+
 def compute_mystery_progress(game_state: "GameState") -> MysteryProgress:
+    cached = _progress_cache.get(game_state)
+    if cached is not None and cached[0] == game_state.mutation_seq:
+        return cached[1]
+
     engine = game_state.engine
     known_cards = len(engine.confirmed)
 
     stats = game_state.last_solver_stats
     remaining_valid_worlds = stats.valid_worlds_last_counted
 
-    return MysteryProgress(
+    progress = MysteryProgress(
         known_cards=known_cards,
         total_cards=len(game_state.cards),
         remaining_valid_worlds=remaining_valid_worlds,
@@ -125,3 +141,5 @@ def compute_mystery_progress(game_state: "GameState") -> MysteryProgress:
         deductions_made=known_cards,
         chance_of_solving_next_turn=_chance_of_solving_next_turn(game_state),
     )
+    _progress_cache[game_state] = (game_state.mutation_seq, progress)
+    return progress

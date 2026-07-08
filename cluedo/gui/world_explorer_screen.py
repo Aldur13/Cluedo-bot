@@ -18,6 +18,7 @@ from tkinter import filedialog, messagebox
 
 from cluedo.analysis.live_events import owner_display_name
 from cluedo.gui.scrollable_frame import build_scrollable_frame
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.probability import TooManyAmbiguousCardsError, triple_probabilities
 
 
@@ -33,7 +34,7 @@ def open_world_explorer(app):
 
     win = tk.Toplevel(app.root)
     win.title("World Explorer")
-    win.geometry("820x680")
+    fit_geometry(win, 820, 680)
     win.configure(bg=theme.bg)
 
     header = tk.Frame(win, bg=theme.bg)
@@ -55,11 +56,17 @@ def open_world_explorer(app):
     weapon_filter = tk.StringVar(value="All")
     room_filter = tk.StringVar(value="All")
 
+    # Close and export_row are packed with side="bottom" *before* the
+    # scrollable list below, so they always keep their reserved space --
+    # packing them after a fill="both", expand=True area (as before) can
+    # starve them of any actual height once the window's content genuinely
+    # overflows the available space.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))
+    export_row = tk.Frame(win, bg=theme.bg)
+    export_row.pack(side="bottom", fill="x", padx=16, pady=(0, 4))
+
     scroll_outer, list_area = build_scrollable_frame(win, theme)
     scroll_outer.pack(fill="both", expand=True, padx=16, pady=(0, 6))
-
-    export_row = tk.Frame(win, bg=theme.bg)
-    export_row.pack(fill="x", padx=16, pady=(0, 4))
 
     state = {"worlds": [], "sort_desc": True}
 
@@ -197,6 +204,11 @@ def open_world_explorer(app):
         result_queue.put((worlds, None))
 
     def _poll():
+        # The user may close the window while the worker is still computing;
+        # touching destroyed widgets from this callback would raise TclError
+        # into Tk's background-error handler on every result.
+        if not win.winfo_exists():
+            return
         try:
             worlds, error = result_queue.get_nowait()
         except queue.Empty:
@@ -206,5 +218,3 @@ def open_world_explorer(app):
 
     threading.Thread(target=_worker, daemon=True).start()
     win.after(50, _poll)
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

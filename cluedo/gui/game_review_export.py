@@ -298,27 +298,28 @@ def _multi_cell_line(pdf, line_height: float, text: str) -> None:
 
 def export_review_pdf(review: GameReview, path: "Path | str") -> None:
     from fpdf import FPDF
+    from fpdf.enums import XPos, YPos
 
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 18)
-    pdf.cell(0, 12, "Cluedo Game Review", ln=True)
+    pdf.cell(0, 12, "Cluedo Game Review", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, f"Difficulty: {review.difficulty} -- {review.difficulty_explanation}", ln=True)
-    pdf.cell(0, 8, f"Overall Rating: {review.overall_rating or 'N/A'}    Efficiency: {_pct(review.efficiency_pct)}", ln=True)
+    pdf.cell(0, 8, f"Difficulty: {review.difficulty} -- {review.difficulty_explanation}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 8, f"Overall Rating: {review.overall_rating or 'N/A'}    Efficiency: {_pct(review.efficiency_pct)}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.cell(
         0, 8,
         f"Turns Played: {review.turns_played}    Estimated Optimal: {_int_or_na(review.estimated_optimal_solve_turn)}"
         f"    Actual Solve Turn: {_int_or_na(review.actual_solve_turn)}    Turns Lost: {_int_or_na(review.turns_lost)}",
-        ln=True,
+        new_x=XPos.LMARGIN, new_y=YPos.NEXT,
     )
     pdf.cell(
         0, 8,
         f"Time Played: {_seconds_or_na(review.time_played_seconds)}    "
         f"Avg/Turn: {_seconds_or_na(review.average_time_per_turn_seconds)}    "
         f"Final Accuracy: {_pct(review.final_accuracy_pct)}",
-        ln=True,
+        new_x=XPos.LMARGIN, new_y=YPos.NEXT,
     )
     pdf.ln(4)
 
@@ -339,7 +340,7 @@ def export_review_pdf(review: GameReview, path: "Path | str") -> None:
     if review.key_turning_point:
         h = review.key_turning_point
         pdf.set_font("Helvetica", "B", 13)
-        pdf.cell(0, 9, "Key Turning Point", ln=True)
+        pdf.cell(0, 9, "Key Turning Point", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 10)
         _multi_cell_line(pdf, 6, f"Turn {h.turn}: {h.explanation}")
         pdf.ln(2)
@@ -347,7 +348,7 @@ def export_review_pdf(review: GameReview, path: "Path | str") -> None:
     if review.largest_deduction:
         d = review.largest_deduction
         pdf.set_font("Helvetica", "B", 13)
-        pdf.cell(0, 9, "Largest Deduction", ln=True)
+        pdf.cell(0, 9, "Largest Deduction", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 10)
         for line in d.narrative:
             _multi_cell_line(pdf, 6, f"- {line}")
@@ -355,7 +356,7 @@ def export_review_pdf(review: GameReview, path: "Path | str") -> None:
 
     if review.missed_opportunities:
         pdf.set_font("Helvetica", "B", 13)
-        pdf.cell(0, 9, "Missed Opportunities", ln=True)
+        pdf.cell(0, 9, "Missed Opportunities", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 10)
         for m in review.missed_opportunities:
             _multi_cell_line(pdf, 6, f"- {m.message}")
@@ -363,7 +364,7 @@ def export_review_pdf(review: GameReview, path: "Path | str") -> None:
 
     if review.timeline:
         pdf.set_font("Helvetica", "B", 13)
-        pdf.cell(0, 9, "Timeline", ln=True)
+        pdf.cell(0, 9, "Timeline", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 10)
         for e in review.timeline:
             _multi_cell_line(pdf, 6, f"Turn {e.turn} -- {e.label}: {e.description}")
@@ -371,7 +372,7 @@ def export_review_pdf(review: GameReview, path: "Path | str") -> None:
 
     if review.feedback:
         pdf.set_font("Helvetica", "B", 13)
-        pdf.cell(0, 9, "Feedback", ln=True)
+        pdf.cell(0, 9, "Feedback", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 10)
         for f in review.feedback:
             _multi_cell_line(pdf, 6, f"- {f}")
