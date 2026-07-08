@@ -28,6 +28,7 @@ from cluedo.gui import (
     world_explorer_screen,
 )
 from cluedo.gui.theme import LIGHT, ThemeManager
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.persistence.player_store import PlayerStore
 
 
@@ -35,8 +36,7 @@ class App:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title(f"Cluedo Deduction Assistant v{__version__}")
-        self.root.geometry("1150x760")
-        self.root.minsize(950, 620)
+        fit_geometry(self.root, 1150, 760, min_width=950, min_height=620)
 
         self.theme_manager = ThemeManager(LIGHT)
         self.theme_manager.subscribe(self._on_theme_changed)

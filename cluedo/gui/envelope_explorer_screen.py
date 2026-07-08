@@ -13,6 +13,7 @@ import tkinter as tk
 from cluedo.gui import sidebar_state
 from cluedo.gui.envelope_rendering import render_probability_row, render_sparkline
 from cluedo.gui.scrollable_frame import build_scrollable_frame
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.history import build_replay_snapshots
 from cluedo.models import ENVELOPE, CardType
 from cluedo.probability import TooManyAmbiguousCardsError
@@ -36,8 +37,13 @@ def open_envelope_explorer(app):
 
     win = tk.Toplevel(app.root)
     win.title("Envelope Explorer")
-    win.geometry("560x600")
+    fit_geometry(win, 560, 600)
     win.configure(bg=theme.bg)
+
+    # Packed first, side="bottom", so Close stays reachable regardless of
+    # how tall the probability list gets -- the scrollable body (below)
+    # scrolls internally instead of pushing it off-screen.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))
 
     header = tk.Frame(win, bg=theme.bg)
     header.pack(fill="x", padx=16, pady=(14, 6))
@@ -120,5 +126,3 @@ def open_envelope_explorer(app):
         tab_buttons[name] = btn
     _style_tabs()
     _render_active_tab()
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

@@ -15,6 +15,8 @@ matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
+from cluedo.gui.scrollable_frame import build_scrollable_frame
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.history import build_replay_snapshots
 from cluedo.models import ENVELOPE
 from cluedo.probability import TooManyAmbiguousCardsError
@@ -33,8 +35,14 @@ def open_graphs(app):
 
     win = tk.Toplevel(app.root)
     win.title("Trends")
-    win.geometry("640x680")
+    fit_geometry(win, 640, 680)
     win.configure(bg=theme.bg)
+
+    # Packed first, side="bottom", so Close stays reachable -- the rendered
+    # figure below is a fixed 6x10in/100dpi (600x1000px) chart stack, taller
+    # than most windows, so it's wrapped in a scrollable body (below)
+    # instead of being allowed to push this off-screen.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 10))
 
     tk.Label(
         win, text="Trends over the game so far", font=theme.heading_font(13), bg=theme.bg, fg=theme.text,
@@ -45,7 +53,6 @@ def open_graphs(app):
             win, text="Log at least one suggestion to see trends.", font=theme.body_font(10), bg=theme.bg,
             fg=theme.muted_text,
         ).pack(padx=12, pady=12)
-        tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))
         return
 
     turns = list(range(len(snapshots)))
@@ -119,8 +126,9 @@ def open_graphs(app):
     # test-marker convention (e.g. CollapsibleCard.title_label.card_title_text).
     win.cluedo_figure = fig
 
-    canvas = FigureCanvasTkAgg(fig, master=win)
+    scroll_outer, content = build_scrollable_frame(win, theme)
+    scroll_outer.pack(fill="both", expand=True)
+
+    canvas = FigureCanvasTkAgg(fig, master=content)
     canvas.draw()
     canvas.get_tk_widget().pack(fill="both", expand=True, padx=8, pady=4)
-
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 10))

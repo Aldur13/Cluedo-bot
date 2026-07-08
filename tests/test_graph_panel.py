@@ -70,11 +70,15 @@ def test_open_graphs_plots_one_point_per_snapshot(root, cfg, cards_by_name, thre
     graph_screen.open_graphs(app)
     win = _find_toplevel(root)
     try:
-        canvases = [
-            w for w in win.winfo_children()
-            if hasattr(w, "figure")
-        ] or [
-            w for w in win.winfo_children() if isinstance(w, tk.Widget) and "Canvas" in type(w).__name__
+        def _descendants(widget):
+            found = [widget]
+            for child in widget.winfo_children():
+                found.extend(_descendants(child))
+            return found
+
+        all_widgets = _descendants(win)
+        canvases = [w for w in all_widgets if hasattr(w, "figure")] or [
+            w for w in all_widgets if isinstance(w, tk.Widget) and "Canvas" in type(w).__name__
         ]
         assert canvases, "expected a matplotlib canvas widget in the Trends window"
     finally:

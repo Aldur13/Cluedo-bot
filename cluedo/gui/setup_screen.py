@@ -1,16 +1,25 @@
 import tkinter as tk
 from tkinter import messagebox
 
+from cluedo.gui.scrollable_frame import build_scrollable_frame
 from cluedo.models import Player
 
 
 def build(parent, theme, config, on_confirmed):
     frame = tk.Frame(parent, bg=theme.bg)
+
+    total_non_envelope = len(config.suspects) + len(config.weapons) + len(config.rooms) - 3
+
+    # Packed first, side="bottom", so "Continue ->" always stays above the
+    # window's bottom margin regardless of how many player rows are shown
+    # below (up to 6) -- the scrollable wrapper around rows_frame (below)
+    # scrolls internally instead of pushing this button off-screen.
+    footer = tk.Frame(frame, bg=theme.bg)
+    footer.pack(side="bottom", fill="x")
+
     tk.Label(
         frame, text=f"Setup — {config.edition}", font=theme.heading_font(18), bg=theme.bg, fg=theme.text
     ).pack(pady=(24, 12))
-
-    total_non_envelope = len(config.suspects) + len(config.weapons) + len(config.rooms) - 3
 
     count_frame = tk.Frame(frame, bg=theme.bg)
     count_frame.pack(pady=6)
@@ -19,8 +28,10 @@ def build(parent, theme, config, on_confirmed):
     )
     count_var = tk.IntVar(value=3)
 
-    rows_frame = tk.Frame(frame, bg=theme.bg)
-    rows_frame.pack(pady=12)
+    scroll_outer, scroll_inner = build_scrollable_frame(frame, theme)
+    scroll_outer.pack(fill="both", expand=True, padx=20)
+    rows_frame = tk.Frame(scroll_inner, bg=theme.bg)
+    rows_frame.pack(fill="x", pady=12)
 
     name_vars: list[tk.StringVar] = []
     hand_vars: list[tk.IntVar] = []
@@ -58,7 +69,9 @@ def build(parent, theme, config, on_confirmed):
         f"Hand sizes must total {total_non_envelope} "
         f"({len(config.suspects) + len(config.weapons) + len(config.rooms)} cards minus the 3 in the envelope)."
     )
-    tk.Label(frame, text=hint, font=theme.body_font(9), bg=theme.bg, fg=theme.muted_text).pack(pady=(0, 4))
+    tk.Label(frame, text=hint, font=theme.body_font(9), bg=theme.bg, fg=theme.muted_text).pack(
+        before=scroll_outer, pady=(0, 4)
+    )
 
     def confirm():
         n = count_var.get()
@@ -77,7 +90,7 @@ def build(parent, theme, config, on_confirmed):
         on_confirmed(players, you_var.get())
 
     tk.Button(
-        frame, text="Continue →", font=theme.body_font(12), bg=theme.accent, fg="white",
+        footer, text="Continue →", font=theme.body_font(12), bg=theme.accent, fg="white",
         activebackground=theme.accent_dark, padx=20, pady=8, cursor="hand2", command=confirm,
     ).pack(pady=20)
 

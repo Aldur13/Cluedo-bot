@@ -13,6 +13,7 @@ import tkinter as tk
 
 from cluedo.gui.scrollable_frame import build_scrollable_frame
 from cluedo.gui.widgets import ChoiceGrid
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.movement.data import (
     MovementData,
     delete_override,
@@ -37,7 +38,7 @@ def open_movement_edit_dialog(app, on_saved=None):
 
     win = tk.Toplevel(app.root)
     win.title("Edit Board Data")
-    win.geometry("560x680")
+    fit_geometry(win, 560, 680)
     win.configure(bg=theme.bg)
 
     tk.Label(
@@ -186,8 +187,13 @@ def open_movement_edit_dialog(app, on_saved=None):
 
     # Outside the scrollable body, pinned to the bottom of the window --
     # always reachable regardless of how tall the room/passage list gets.
+    # `before=scroll_outer` matters: scroll_outer is packed with
+    # fill="both", expand=True, so appending button_row after it (a plain
+    # trailing pack()) can starve it of any actual height once content
+    # overflows -- inserting it back before scroll_outer in the packer's
+    # slave order is what actually reserves its space.
     button_row = tk.Frame(win, bg=theme.bg)
-    button_row.pack(pady=(0, 14))
+    button_row.pack(side="bottom", pady=(0, 14), before=scroll_outer)
     tk.Button(button_row, text="Save", font=theme.body_font(10, "bold"), command=_save).pack(side="left", padx=6)
     if has_override(edition_key):
         tk.Button(button_row, text="Reset to Bundled Defaults", font=theme.body_font(10), command=_reset).pack(

@@ -11,6 +11,7 @@ import tkinter as tk
 
 from cluedo.explain import full_derivation_chain
 from cluedo.gui import deduction_graph_screen
+from cluedo.gui.window_geometry import fit_geometry
 
 
 def open_explain(app, card):
@@ -18,8 +19,14 @@ def open_explain(app, card):
     theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title(f"Why: {card.name}")
-    win.geometry("460x420")
+    fit_geometry(win, 460, 420)
     win.configure(bg=theme.bg)
+
+    # Packed first, side="bottom", so Close (and the optional graph button
+    # below) stay reachable regardless of how long the derivation text gets
+    # -- the label below is the one widget that expands to fill leftover
+    # space, and packing it after these means it can never crowd them out.
+    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(side="bottom", pady=(0, 12))
 
     explanation = gs.explain_card(card)
     show_graph_button = False
@@ -35,14 +42,12 @@ def open_explain(app, card):
         text = "\n".join(lines)
         show_graph_button = any(len(exp.premises) > 1 for exp in chain)
 
-    tk.Label(
-        win, text=text, justify="left", wraplength=420, font=theme.body_font(10), bg=theme.bg, anchor="nw"
-    ).pack(padx=16, pady=16, anchor="w", fill="both", expand=True)
-
     if show_graph_button:
         tk.Button(
             win, text="Open Deduction Graph", font=theme.body_font(9),
             command=lambda: deduction_graph_screen.open_deduction_graph(app, card),
-        ).pack(pady=(0, 4))
+        ).pack(side="bottom", pady=(0, 4))
 
-    tk.Button(win, text="Close", command=win.destroy, font=theme.body_font(10)).pack(pady=(0, 12))
+    tk.Label(
+        win, text=text, justify="left", wraplength=420, font=theme.body_font(10), bg=theme.bg, anchor="nw"
+    ).pack(padx=16, pady=16, anchor="w", fill="both", expand=True)
