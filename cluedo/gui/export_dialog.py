@@ -4,6 +4,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.models import CardType, ENVELOPE
 
 
@@ -12,7 +13,7 @@ def open_export(app):
     theme = app.theme_manager.current
     win = tk.Toplevel(app.root)
     win.title("Export")
-    win.geometry("320x280")
+    fit_geometry(win, 320, 280)
     win.configure(bg=theme.bg)
 
     def export_png():
@@ -124,34 +125,35 @@ def _export_sheet_png(gs, path):
 
 def _export_timeline_pdf(gs, path):
     from fpdf import FPDF
+    from fpdf.enums import XPos, YPos
 
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, f"Cluedo Game Timeline -- {gs.config.edition}", ln=True)
+    pdf.cell(0, 10, f"Cluedo Game Timeline -- {gs.config.edition}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 8, f"Players: {', '.join(p.name for p in gs.players)}", ln=True)
+    pdf.cell(0, 8, f"Players: {', '.join(p.name for p in gs.players)}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(4)
 
     for i, s in enumerate(gs.history, start=1):
         suggester = gs.players[s.suggester_seat].name
         pdf.set_font("Helvetica", "B", 11)
-        pdf.cell(0, 8, f"Turn {i}: {suggester} suggested", ln=True)
+        pdf.cell(0, 8, f"Turn {i}: {suggester} suggested", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 6, f"  {s.suspect.name} / {s.weapon.name} / {s.room.name}", ln=True)
+        pdf.cell(0, 6, f"  {s.suspect.name} / {s.weapon.name} / {s.room.name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         for r in s.responses:
             responder = gs.players[r.responder_seat].name
             if r.outcome == "no_show":
-                pdf.cell(0, 6, f"    {responder}: showed nothing", ln=True)
+                pdf.cell(0, 6, f"    {responder}: showed nothing", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             elif r.outcome == "shown_to_me":
-                pdf.cell(0, 6, f"    {responder}: showed {r.shown_card.name}", ln=True)
+                pdf.cell(0, 6, f"    {responder}: showed {r.shown_card.name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             else:
-                pdf.cell(0, 6, f"    {responder}: showed a card (unseen)", ln=True)
+                pdf.cell(0, 6, f"    {responder}: showed a card (unseen)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(2)
 
     if gs.is_solved():
         s, w, r = gs.solution()
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, f"Solution: {s.name} / {w.name} / {r.name}", ln=True)
+        pdf.cell(0, 10, f"Solution: {s.name} / {w.name} / {r.name}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     pdf.output(path)

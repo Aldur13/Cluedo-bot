@@ -3,6 +3,7 @@ from tkinter import messagebox
 
 from cluedo.engine import ContradictionError
 from cluedo.gui.widgets import ChoiceGrid
+from cluedo.gui.window_geometry import fit_geometry
 from cluedo.models import SuggestionResponse
 
 # Remembers the last-picked suspect/weapon/room across dialog opens (within
@@ -22,14 +23,16 @@ def _default_suggester_seat(gs):
 
 
 def open_dialog(app, edit_suggestion=None):
+    """Returns the dialog Toplevel (or None if no game is in progress), so
+    callers (e.g. the Timeline window) can react to it closing."""
     gs = app.game_state
     if gs is None:
-        return
+        return None
     theme = app.theme_manager.current
 
     win = tk.Toplevel(app.root)
     win.title("Edit Suggestion" if edit_suggestion else "Log Suggestion")
-    win.geometry("520x680")
+    fit_geometry(win, 520, 680)
     win.configure(bg=theme.bg)
     win.grab_set()
 
@@ -186,3 +189,4 @@ def open_dialog(app, edit_suggestion=None):
     )
     win.bind("<Return>", lambda e: submit())
     win.bind("<Escape>", lambda e: win.destroy())
+    return win

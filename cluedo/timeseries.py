@@ -6,11 +6,11 @@ never feeds anything back into the solver and never modifies `game.py`,
 
 Deliberately decoupled from *how* the snapshot list was produced: callers
 pass in `snapshots: list[ReplaySnapshot]` directly rather than a `GameState`
-this module would replay itself. In particular this module must never import
-`cluedo.gui.snapshot_cache` (or anything else under `cluedo.gui`) -- that
-would be a backwards layering dependency from pure core into the GUI layer.
-The GUI's `SnapshotCache` is exactly what's expected to build/cache the list
-these functions consume.
+this module would replay itself. This module must never import anything
+under `cluedo.gui` -- that would be a backwards layering dependency from
+pure core into the GUI layer. `history.build_replay_snapshots` (which
+memoizes per GameState/mutation_seq itself) is what builds the list these
+functions consume.
 
 No matplotlib import anywhere in this file -- rendering lives in the
 (separately built) `cluedo/gui/graph_panel.py`.

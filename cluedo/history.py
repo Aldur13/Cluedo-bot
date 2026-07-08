@@ -8,6 +8,7 @@ live game.
 """
 from __future__ import annotations
 
+import weakref
 from dataclasses import dataclass
 
 from cluedo.game import GameState
@@ -19,23 +20,34 @@ class ReplaySnapshot:
     step_index: int
     game_state: GameState
 
+# GameState -> (mutation_seq, snapshots). Weak keys, so an entry dies with its
+# GameState -- unlike an id()-keyed cache (tried and reverted once), where a
+# garbage-collected GameState's reused memory address could collide with a
+# later, unrelated GameState and silently serve it another game's snapshots.
+# Weak references cannot collide that way: the key IS the live object.
+_snapshot_cache: "weakref.WeakKeyDictionary[GameState, tuple[int, list[ReplaySnapshot]]]" = (
+    weakref.WeakKeyDictionary()
+)
+
 
 def build_replay_snapshots(game_state: GameState) -> list[ReplaySnapshot]:
     """Precompute one GameState per history prefix length 0..len(history), once,
     up front. Scrubbing afterward is then O(1) array indexing -- no
     recomputation while the user drags the timeline slider.
 
-    Deliberately uncached here: an earlier version of this function added a
-    module-level (id(game_state), mutation_seq) cache slot, but `id()` gets
-    reused once a garbage-collected GameState's memory is freed -- in a
-    long-lived process (or a test suite creating many short-lived
-    GameStates) that let an unrelated, later GameState collide on the same
-    (id, mutation_seq) key and silently receive another game's stale
-    snapshots. cluedo.gui.snapshot_cache.SnapshotCache solves this correctly
-    with a *per-instance* cache (each consumer owns its own slot, so there's
-    no cross-object collision risk) -- callers that want caching should use
-    that, not a global here.
+    Cached per GameState instance, invalidated by `mutation_seq` (which exists
+    exactly for this -- see its docstring in game.py). Many independent
+    consumers replay the whole game on every dashboard refresh (sheet-grid
+    change highlights, recent deductions, timeline, live stats, per-opponent
+    pattern analysis); sharing one replay per mutation here keeps a
+    mid/late-game refresh from costing several seconds of redundant solver
+    reruns on the Tk main thread. Returns a fresh list each call (the
+    ReplaySnapshot entries themselves are shared and treated as read-only).
     """
+    cached = _snapshot_cache.get(game_state)
+    if cached is not None and cached[0] == game_state.mutation_seq:
+        return list(cached[1])
+
     snapshots = []
     for i in range(len(game_state.history) + 1):
         snap = GameState.from_history(
@@ -47,7 +59,8 @@ def build_replay_snapshots(game_state: GameState) -> list[ReplaySnapshot]:
         )
         snapshots.append(ReplaySnapshot(i, snap))
 
-    return snapshots
+    _snapshot_cache[game_state] = (game_state.mutation_seq, snapshots)
+    return list(snapshots)
 
 
 def whatif_game_state(live: GameState, hypothetical: Suggestion) -> GameState:
