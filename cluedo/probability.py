@@ -121,6 +121,14 @@ def _pin(ci: CountingInput, card: Card, owner: str) -> CountingInput:
     return CountingInput(ambiguous=new_ambiguous, capacities=ci.capacities, at_least_one=ci.at_least_one)
 
 
+def _pin_many(ci: CountingInput, cards: Sequence[Card], owner: str) -> CountingInput:
+    card_set = set(cards)
+    new_ambiguous = tuple(
+        AmbiguousCard(ac.card, (owner,)) if ac.card in card_set else ac for ac in ci.ambiguous
+    )
+    return CountingInput(ambiguous=new_ambiguous, capacities=ci.capacities, at_least_one=ci.at_least_one)
+
+
 def compute_probabilities(ci: CountingInput, *, max_ambiguous: int = 14) -> Probabilities:
     """Exact per-card, per-owner probabilities, derived only from valid worlds."""
     if len(ci.ambiguous) > max_ambiguous:
@@ -155,6 +163,85 @@ def full_probabilities(engine, *, max_ambiguous: int = 14) -> dict:
         probs = compute_probabilities(ci, max_ambiguous=max_ambiguous)
         result.update(probs.per_card)
     return result
+
+
+@dataclass(frozen=True)
+class WorldCandidate:
+    """One still-possible envelope triple ("world" in the product spec's
+    sense -- a candidate solution, not a full per-card assignment; see
+    triple_probabilities' docstring for why). `supporting_owner_facts` is a
+    real, structured (card, owner_id) fact list -- who else may still hold
+    which other ambiguous card in a world consistent with this triple --
+    left un-rendered (raw owner ids, no display names) so the GUI layer
+    decides phrasing/name-mapping, matching this module's existing
+    name-agnostic convention (see probability_of_response_outcome)."""
+
+    suspect: Card
+    weapon: Card
+    room: Card
+    probability: float
+    supporting_owner_facts: tuple[tuple[Card, str], ...]
+
+
+def triple_probabilities(engine, *, max_ambiguous: int = 14) -> list["WorldCandidate"]:
+    """Every still-possible (suspect, weapon, room) envelope triple with its
+    exact joint probability -- the World Explorer's data source.
+
+    Deliberately triple-level, not a full per-card world enumeration:
+    `count_worlds` is an exact DP counter that never materializes individual
+    full assignments (enumerating those would be combinatorially large and
+    mostly irrelevant to a player choosing between candidate solutions).
+    This instead mirrors `advisor.py::_candidate_triples`'s own
+    envelope-eligible enumeration, then computes each triple's exact
+    probability by pinning all three cards to the envelope and re-running
+    the same `count_worlds` DP used everywhere else in this module -- same
+    `max_ambiguous` gate and exception as `compute_probabilities`, so this
+    is exact whenever it doesn't raise, never an approximation.
+
+    Results are sorted by probability descending; only triples with a
+    nonzero world count are returned (a triple every remaining fact has
+    already ruled out isn't a "candidate").
+    """
+    ci = engine.counting_input()
+    if len(ci.ambiguous) > max_ambiguous:
+        raise TooManyAmbiguousCardsError(len(ci.ambiguous), max_ambiguous)
+
+    def _envelope_eligible(card_type: CardType) -> list[Card]:
+        return [c for c in engine.cards if c.type == card_type and ENVELOPE in engine.possible_owners(c)]
+
+    suspects = _envelope_eligible(CardType.SUSPECT)
+    weapons = _envelope_eligible(CardType.WEAPON)
+    rooms = _envelope_eligible(CardType.ROOM)
+
+    total = count_worlds(ci)
+    if total == 0:
+        return []
+
+    candidates: list[WorldCandidate] = []
+    for suspect in suspects:
+        for weapon in weapons:
+            for room in rooms:
+                trio = (suspect, weapon, room)
+                pinned = _pin_many(ci, trio, ENVELOPE)
+                count = count_worlds(pinned)
+                if count == 0:
+                    continue
+
+                trio_set = set(trio)
+                facts: list[tuple[Card, str]] = []
+                for ac in pinned.ambiguous:
+                    if ac.card in trio_set or len(ac.domain) <= 1:
+                        continue
+                    facts.append((ac.card, ac.domain[0]))
+                    if len(facts) >= 3:
+                        break
+
+                candidates.append(
+                    WorldCandidate(suspect, weapon, room, count / total, tuple(facts))
+                )
+
+    candidates.sort(key=lambda w: w.probability, reverse=True)
+    return candidates
 
 
 def envelope_probability(probabilities: Probabilities, card: Card) -> float:
