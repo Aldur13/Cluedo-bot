@@ -89,6 +89,21 @@ def test_room_with_no_advisor_data_still_ranks_with_zero_contribution(cfg, cards
         assert ranking.overall_score == 0.0
 
 
+def test_secret_passage_rationale_mentions_passage_not_already_here(cfg, cards_by_name, three_players):
+    # Regression: _rationale() checked `distance == 0` before `via_secret_passage`,
+    # but passage routes always have distance 0 (graph.py's RouteResult), so the
+    # passage branch was unreachable dead code -- every passage-reachable room
+    # showed the (false) "You're already here." text instead of the passage note.
+    gs = _fresh_game(cfg, cards_by_name, three_players)
+    gs.set_current_room("Kitchen")
+    graph = _synthetic_graph(secret_passages=(("Kitchen", "Study"),))
+
+    recommendation = rank_rooms(gs, graph)
+    study_ranking = next(r for r in recommendation.rankings if r.room == "Study")
+    assert "secret passage" in study_ranking.rationale
+    assert "already here" not in study_ranking.rationale
+
+
 def test_current_room_itself_has_zero_distance_and_full_reach(cfg, cards_by_name, three_players):
     gs = _fresh_game(cfg, cards_by_name, three_players)
     gs.set_current_room("Hall")
@@ -99,3 +114,4 @@ def test_current_room_itself_has_zero_distance_and_full_reach(cfg, cards_by_name
     assert here.distance == 0
     assert here.reach_probability == 1.0
     assert here.reachable_this_turn is True
+    assert "already here" in here.rationale

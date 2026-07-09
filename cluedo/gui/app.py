@@ -50,6 +50,11 @@ class App:
         self._current_frame = None
         self._current_screen_show = lambda: None
         self.refresh_main_screen = lambda: None
+        # Non-modal auxiliary windows (e.g. Timeline) that must stay in sync
+        # with the live GameState while open register here instead of
+        # relying on refresh_main_screen, which only ever points at whatever
+        # single screen is current.
+        self._mutation_listeners = []
 
         self.player_store = PlayerStore()
         self._game_id: str | None = None
@@ -159,12 +164,33 @@ class App:
     def after_mutation(self):
         self._autosave()
         self._sync_player_store()
+        # A game can go from solved back to unsolved (undo, or deleting/
+        # editing the solving suggestion via Timeline) -- rearm the
+        # once-per-game Game Review guard so a later, different solve
+        # recomputes its own review instead of _maybe_auto_open_review
+        # silently no-oping and leaving the sidebar card showing the
+        # *first* solve's stale grade/efficiency/turning-point data.
+        if self._game_review_shown and self.game_state is not None and not self.game_state.is_solved():
+            self._game_review_shown = False
+            self._game_review_cache = None
         # Compute/cache the Game Review (and auto-open its popup) *before*
         # refreshing the sidebar, so the Game Review card can show the
         # summary on the very turn that solves the game instead of lagging
         # one refresh behind.
         self._maybe_auto_open_review()
         self.refresh_main_screen()
+        for listener in list(self._mutation_listeners):
+            listener()
+
+    def add_mutation_listener(self, callback):
+        """Registers `callback` to run after every mutation (new suggestion,
+        undo, edit, delete). Caller is responsible for calling
+        remove_mutation_listener once its window closes."""
+        self._mutation_listeners.append(callback)
+
+    def remove_mutation_listener(self, callback):
+        if callback in self._mutation_listeners:
+            self._mutation_listeners.remove(callback)
 
     def open_suggestion_dialog(self):
         if self.game_state:
@@ -325,13 +351,30 @@ class App:
 
     # ------------------------------------------------------------ shortcuts
 
+    def _guarded(self, action):
+        """Wraps a global shortcut so it's a no-op while a text-entry-like
+        widget has focus. `bind_all` fires regardless of focus, and Tk's
+        built-in Entry/Spinbox bindings only claim Ctrl-A/B/D/E/F/H/K/T/W --
+        not Z/S/O/N/E/R -- so without this guard, e.g. typing Ctrl-Z while
+        correcting a value in "Edit Board Data" silently calls self.undo()
+        (deleting the player's last logged suggestion) instead of editing
+        text, and Ctrl-O pops the load-file dialog mid-keystroke."""
+
+        def _handler(event):
+            focused = self.root.focus_get()
+            if isinstance(focused, (tk.Entry, tk.Spinbox, tk.Text)):
+                return
+            action()
+
+        return _handler
+
     def _bind_shortcuts(self):
-        self.root.bind_all("<Control-z>", lambda e: self.undo())
-        self.root.bind_all("<Control-s>", lambda e: self.save())
-        self.root.bind_all("<Control-o>", lambda e: self.load())
-        self.root.bind_all("<Control-n>", lambda e: self.open_suggestion_dialog())
-        self.root.bind_all("<Control-e>", lambda e: self.open_timeline())
-        self.root.bind_all("<Control-r>", lambda e: self.open_replay())
+        self.root.bind_all("<Control-z>", self._guarded(self.undo))
+        self.root.bind_all("<Control-s>", self._guarded(self.save))
+        self.root.bind_all("<Control-o>", self._guarded(self.load))
+        self.root.bind_all("<Control-n>", self._guarded(self.open_suggestion_dialog))
+        self.root.bind_all("<Control-e>", self._guarded(self.open_timeline))
+        self.root.bind_all("<Control-r>", self._guarded(self.open_replay))
 
     def run(self):
         self.root.mainloop()

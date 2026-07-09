@@ -32,10 +32,10 @@ def _combine(reach_probability: float, info_gain: Optional[float]) -> float:
 
 def _rationale(distance: int, via_secret_passage: bool, moves_saved: Optional[int],
                reach_probability: float, info_gain: Optional[float]) -> str:
-    if distance == 0:
-        location = "You're already here."
-    elif via_secret_passage:
+    if via_secret_passage:
         location = f"Reachable instantly via secret passage ({moves_saved} tile(s) saved vs. the hallway route)."
+    elif distance == 0:
+        location = "You're already here."
     else:
         location = f"{round(reach_probability * 100)}% chance to reach this turn (distance {distance})."
     if info_gain is None:

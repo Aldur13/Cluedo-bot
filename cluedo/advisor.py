@@ -11,6 +11,7 @@ import itertools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
+from cluedo.engine import ContradictionError
 from cluedo.history import whatif_game_state
 from cluedo.models import ENVELOPE, Card, CardType, Suggestion, SuggestionResponse, seat_id
 from cluedo.probability import count_worlds, probability_of_response_outcome
@@ -236,7 +237,7 @@ def _expected_info_gain(
         hypothetical = Suggestion("__whatif__", game_state.user_seat, suspect, weapon, room, tuple(responses))
         try:
             scratch = whatif_game_state(game_state, hypothetical)
-        except Exception:
+        except ContradictionError:
             continue  # this outcome turned out to be impossible; contributes 0
 
         resulting_total = count_worlds(scratch.engine.counting_input())

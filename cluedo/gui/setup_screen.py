@@ -74,7 +74,17 @@ def build(parent, theme, config, on_confirmed):
     )
 
     def confirm():
-        n = count_var.get()
+        # The player-count/hand-size Spinboxes are freely editable text
+        # fields, not just up/down-click steppers -- typing e.g. "3x" leaves
+        # the IntVar holding a non-numeric string, and .get() raises TclError
+        # rather than returning a value. Report it like every other
+        # validation failure here instead of letting it crash the app.
+        try:
+            n = count_var.get()
+            sizes = [v.get() for v in hand_vars]
+        except tk.TclError:
+            messagebox.showerror("Invalid number", "Player count and hand sizes must be whole numbers.")
+            return
         names = [v.get().strip() for v in name_vars]
         if any(not name for name in names):
             messagebox.showerror("Missing name", "Every player needs a name.")
@@ -82,7 +92,6 @@ def build(parent, theme, config, on_confirmed):
         if len(set(names)) != len(names):
             messagebox.showerror("Duplicate name", "Player names must be unique.")
             return
-        sizes = [v.get() for v in hand_vars]
         if sum(sizes) != total_non_envelope:
             messagebox.showerror("Hand sizes don't add up", hint)
             return

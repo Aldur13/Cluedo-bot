@@ -43,6 +43,9 @@ def _bare_app(game_state):
     app.player_store = _FakeStore()
     app._game_id = None
     app._game_end_recorded = False
+    app._game_review_shown = False
+    app._game_review_cache = None
+    app._mutation_listeners = []
     app.refresh_main_screen = lambda: None
     app._maybe_auto_open_review = lambda: None
     return app

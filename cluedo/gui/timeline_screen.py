@@ -38,6 +38,12 @@ def open_timeline(app):
 
     refresh()
 
+    # Timeline is non-modal -- the Suggestion dialog can be opened right
+    # over it to log a new entry -- so it must react to mutations made while
+    # it's still open, not just to edits/deletes it triggers itself.
+    app.add_mutation_listener(refresh)
+    win.bind("<Destroy>", lambda e: app.remove_mutation_listener(refresh) if e.widget is win else None, add="+")
+
     def edit_selected():
         sel = listbox.curselection()
         if not sel:
@@ -58,8 +64,7 @@ def open_timeline(app):
             return
         suggestion = gs.history[sel[0]]
         gs.delete_suggestion(suggestion.suggestion_id)
-        app.after_mutation()
-        refresh()
+        app.after_mutation()  # runs refresh() via the mutation-listener registered above
 
     # `before=listbox` matters: listbox is packed with fill="both",
     # expand=True, so appending btns after it (a plain trailing pack()) can

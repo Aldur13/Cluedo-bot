@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from cluedo.config import CardConfig
+from cluedo.config import CardConfig, ConfigError, validate_card_config
 from cluedo.engine import ConstraintEngine, ContradictionError, SolverStats
 from cluedo.explain import Explanation, FactSource, full_derivation_chain
 from cluedo.models import ENVELOPE, Card, Player, Suggestion, SuggestionResponse, seat_id
@@ -244,13 +244,11 @@ class GameState:
         if not isinstance(data, dict) or data.get("save_format_version") != SAVE_FORMAT_VERSION:
             raise SaveFileError("Unrecognized or incompatible save file format.")
         try:
-            cfg_data = data["card_config"]
-            config = CardConfig(
-                edition=cfg_data["edition"],
-                suspects=tuple(cfg_data["suspects"]),
-                weapons=tuple(cfg_data["weapons"]),
-                rooms=tuple(cfg_data["rooms"]),
-            )
+            # Same validation load_card_config/load_bundled_edition apply to
+            # normal edition files (duplicate names, empty categories, etc.) --
+            # a hand-edited/corrupted save must not bypass it and silently
+            # collapse two distinct cards that share a name.
+            config = validate_card_config(data["card_config"])
             cards_by_name = {c.name: c for c in config.all_cards()}
             players = [Player(p["name"], p["seat_index"], p["hand_size"]) for p in data["players"]]
             user_seat = data["user_seat"]
@@ -258,6 +256,19 @@ class GameState:
             history = [_suggestion_from_dict(s, cards_by_name) for s in data["history"]]
         except (KeyError, TypeError) as exc:
             raise SaveFileError(f"Couldn't load this file: malformed data ({exc}).") from exc
+        except ConfigError as exc:
+            raise SaveFileError(f"Couldn't load this file: invalid card config ({exc}).") from exc
+
+        # user_owner_id() and several GUI modules index/match players by
+        # position vs. by seat_index interchangeably, an invariant normal
+        # construction (setup_screen.py) always upholds by construction
+        # (Player(names[i], i, sizes[i])) -- a save file can't be trusted to,
+        # so enforce it explicitly instead of letting a corrupted save
+        # silently misattribute hands or crash with a bare IndexError.
+        if not players or any(p.seat_index != i for i, p in enumerate(players)):
+            raise SaveFileError("Couldn't load this file: player seat indices are inconsistent.")
+        if not isinstance(user_seat, int) or isinstance(user_seat, bool) or not (0 <= user_seat < len(players)):
+            raise SaveFileError("Couldn't load this file: user_seat is out of range.")
 
         try:
             gs = cls.from_history(config, players, user_seat, initial_hand, history)

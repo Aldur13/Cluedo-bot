@@ -217,6 +217,13 @@ class ConstraintEngine:
         if card in self.confirmed:
             return
         self.confirmed[card] = owner
+        # Cheap-propagation confirms only fire once possible[card] is already
+        # {owner}, but world-search confirms (_confirm_via_world_search) can
+        # confirm a card whose possible[] domain still has other members --
+        # narrow it here so possible_owners() never disagrees with owner_of()
+        # for a confirmed card (probability.py/advisor.py query possible_owners
+        # directly, without re-checking self.confirmed).
+        self.possible[card] &= {owner}
         conclusion = Fact(FactKind.OWNED, card, owner, FactSource("derived"), f"{owner} owns {card.name}.")
         narrative = [p.label for p in premises]
         narrative.append(f"Therefore {card.name} must belong to {owner}.")

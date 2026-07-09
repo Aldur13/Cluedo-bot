@@ -1,10 +1,10 @@
 """Tests for cluedo.analysis.strategy: explainable threshold-based
 classification on top of PlayerPatternStats.
 """
-from cluedo.analysis.patterns import analyze_player_patterns
+from cluedo.analysis.patterns import PlayerPatternStats, analyze_player_patterns
 from cluedo.analysis.strategy import PlayerStrategy, classify_strategy
 from cluedo.game import GameState
-from cluedo.models import SuggestionResponse
+from cluedo.models import CardType, SuggestionResponse
 
 
 def _basic_game(cfg, cards_by_name, three_players):
@@ -56,6 +56,44 @@ def test_weapon_hunter_classification(cfg, cards_by_name, three_players):
     assert evidence["category"] == "weapon"
     assert evidence["lock_streak"] == 4
     assert evidence["lock_ratio"] == 1.0
+
+
+def test_narrow_fixation_is_not_misclassified_as_random_explorer(cfg, cards_by_name):
+    # Regression: the CV uniformity check only looked at stats.card_frequency
+    # (cards suggested at least once), never at stats.never_suggested (the
+    # rest of the deck as implicit zeros). A player who repeats the *same*
+    # 3-card triple over and over has card_frequency={A:N, B:N, C:N} --
+    # perfectly uniform *among itself* (CV=0) -- and got mislabeled
+    # RANDOM_EXPLORER ("no discernible favorites"), the opposite of extreme,
+    # narrow fixation on 3 of ~21 cards.
+    suspect = cards_by_name["Reverend Green"]
+    weapon = cards_by_name["Rope"]
+    room = cards_by_name["Kitchen"]
+    deck = cfg.all_cards()
+    never_suggested = frozenset(c for c in deck if c not in (suspect, weapon, room))
+
+    stats = PlayerPatternStats(
+        seat=1,
+        total_suggestions=20,
+        card_frequency={suspect: 20, weapon: 20, room: 20},
+        pair_frequency={
+            frozenset({suspect, weapon}): 20,
+            frozenset({suspect, room}): 20,
+            frozenset({weapon, room}): 20,
+        },
+        triple_frequency={frozenset({suspect, weapon, room}): 20},
+        never_suggested=never_suggested,
+        always_suggested=frozenset(),
+        category_lock_streaks={CardType.SUSPECT: 1, CardType.WEAPON: 1, CardType.ROOM: 1},
+        favorite_room=room,
+        favorite_suspect=suspect,
+        favorite_weapon=weapon,
+        redundant_suggestion_count=0,
+    )
+
+    strategy, _evidence = classify_strategy(stats)
+
+    assert strategy is not PlayerStrategy.RANDOM_EXPLORER
 
 
 def test_bluffer_classification(cfg, cards_by_name, three_players):

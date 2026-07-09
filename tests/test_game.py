@@ -1,3 +1,4 @@
+import json
 import tempfile
 from pathlib import Path
 
@@ -98,6 +99,58 @@ def test_load_corrupted_json_raises_save_file_error():
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "bad.json"
         path.write_text("{not valid json", encoding="utf-8")
+        with pytest.raises(SaveFileError):
+            load_game(path)
+
+
+def test_load_out_of_range_user_seat_raises_save_file_error(cfg, cards_by_name, three_players):
+    # Regression: user_seat was never bounds-checked. user_owner_id() indexes
+    # self.players[self.user_seat] positionally, so an out-of-range value
+    # used to raise a bare IndexError -- not SaveFileError -- crashing the
+    # app instead of showing "Couldn't load file".
+    from cluedo.game import SaveFileError
+
+    gs = _basic_game(cfg, cards_by_name, three_players)
+    data = gs.to_dict()
+    data["user_seat"] = 99
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "game.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        with pytest.raises(SaveFileError):
+            load_game(path)
+
+
+def test_load_mismatched_seat_index_raises_save_file_error(cfg, cards_by_name, three_players):
+    # Regression: nothing checked that players[i].seat_index == i.
+    # user_owner_id() indexes players positionally while other GUI modules
+    # match by seat_index -- a save with reordered/duplicate seat_index
+    # values used to silently misattribute hands instead of failing to load.
+    from cluedo.game import SaveFileError
+
+    gs = _basic_game(cfg, cards_by_name, three_players)
+    data = gs.to_dict()
+    data["players"][0]["seat_index"] = 2
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "game.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        with pytest.raises(SaveFileError):
+            load_game(path)
+
+
+def test_load_duplicate_card_names_raises_save_file_error(cfg, cards_by_name, three_players):
+    # Regression: card_config was reconstructed directly from the save dict,
+    # bypassing config.validate_card_config's duplicate-name check that every
+    # normal edition file gets -- a hand-edited/corrupted save with the same
+    # name in two categories used to silently collapse two distinct Cards.
+    from cluedo.game import SaveFileError
+
+    gs = _basic_game(cfg, cards_by_name, three_players)
+    data = gs.to_dict()
+    data["card_config"]["weapons"] = list(data["card_config"]["weapons"])
+    data["card_config"]["weapons"][0] = data["card_config"]["suspects"][0]
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "game.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
         with pytest.raises(SaveFileError):
             load_game(path)
 

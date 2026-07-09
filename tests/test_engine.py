@@ -1,6 +1,7 @@
 import pytest
 
 from cluedo.engine import ConstraintEngine, ContradictionError
+from cluedo.explain import FactKind
 from cluedo.models import ENVELOPE
 
 
@@ -130,3 +131,23 @@ def test_contradiction_zero_valid_worlds_from_impossible_at_least_one(cfg, cards
     with pytest.raises(ContradictionError) as exc_info:
         engine.recompute()
     assert exc_info.value.kind == "zero_valid_worlds"
+
+
+def test_world_search_confirmation_narrows_possible_owners(cfg, cards_by_name, three_players):
+    """Regression: _confirm() used to set engine.confirmed[card] without
+    narrowing engine.possible[card] to {owner}. Cheap-propagation confirms
+    only ever fire once possible[card] is already a singleton, so this only
+    showed up for cards confirmed via _confirm_via_world_search, where the
+    domain can still have other members at confirmation time. Consumers like
+    probability.py/advisor.py query possible_owners() directly (not gated on
+    `card in engine.confirmed`), so a stale multi-owner domain fed wrong
+    envelope-eligibility into World Explorer probabilities and advisor
+    rankings for any card confirmed this way."""
+    engine = ConstraintEngine(cfg.all_cards(), three_players)
+    card = cards_by_name["Knife"]
+    assert len(engine.possible_owners(card)) > 1  # nothing has narrowed it yet
+
+    engine._confirm(card, "seat_1", FactKind.WORLD_ARGUMENT, [], "test")
+
+    assert engine.owner_of(card) == "seat_1"
+    assert engine.possible_owners(card) == {"seat_1"}

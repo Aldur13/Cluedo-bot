@@ -143,8 +143,14 @@ def classify_strategy(stats: PlayerPatternStats) -> tuple[PlayerStrategy, dict]:
         }
 
     # 4. Random explorer -- no category dominates (best_ratio stayed below
-    # the hunter threshold above) and card choice is roughly uniform.
-    cv = _coefficient_of_variation(list(stats.card_frequency.values()))
+    # the hunter threshold above) and card choice is roughly uniform. CV must
+    # be computed over the *full deck*, including cards never suggested (as
+    # explicit zeros) -- otherwise a player fixated on the same 3 cards over
+    # and over has a card_frequency of just {X: N, Y: N, Z: N}, which is
+    # perfectly uniform *among itself* (CV=0) and gets mislabeled as this
+    # rule's "no discernible favorites" signature, the opposite of the truth.
+    card_frequencies = list(stats.card_frequency.values()) + [0] * len(stats.never_suggested)
+    cv = _coefficient_of_variation(card_frequencies)
     if cv is not None and cv <= UNIFORMITY_CV_THRESHOLD:
         return PlayerStrategy.RANDOM_EXPLORER, {
             "card_frequency_cv": cv,

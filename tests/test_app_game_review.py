@@ -42,6 +42,8 @@ def _bare_app(root, game_state):
     app._game_end_recorded = False
     app._game_start_wall_clock = None
     app._game_review_shown = False
+    app._game_review_cache = None
+    app._mutation_listeners = []
     app.refresh_main_screen = lambda: None
     return app
 
@@ -82,6 +84,62 @@ def test_auto_open_review_fires_exactly_once_when_solved(root, cfg, cards_by_nam
         assert len(second_round) == 1  # still just the one
     finally:
         for w in first_round:
+            w.destroy()
+
+
+def test_undo_after_solve_rearms_review_for_a_later_different_solve(
+    root, cfg, cards_by_name, three_players, tmp_path, monkeypatch
+):
+    # Regression: _game_review_shown/_game_review_cache were only ever reset
+    # in _start_tracking_game(), never when a solved game goes back to
+    # unsolved (undo). Re-solving differently after an undo used to leave
+    # the sidebar's Game Review card showing the *first* solve's stale
+    # grade/efficiency/turns-played data, since _maybe_auto_open_review()
+    # no-ops once _game_review_shown is already True.
+    monkeypatch.setattr("cluedo.gui.app.default_autosave_path", lambda: tmp_path / "autosave.json")
+
+    gs = _fresh_game(cfg, cards_by_name, three_players)
+    app = _bare_app(root, gs)
+    app._start_tracking_game()
+    before = set(_toplevels(root))
+    opened = []
+
+    gs.record_suggestion(
+        0, cards_by_name["Reverend Green"], cards_by_name["Rope"], cards_by_name["Kitchen"],
+        [SuggestionResponse(1, "no_show"), SuggestionResponse(2, "no_show")],
+    )
+    assert gs.is_solved()
+    app.after_mutation()
+    opened.extend(w for w in _toplevels(root) if w not in before and w not in opened)
+    first_review = app._game_review_cache
+    assert first_review is not None
+    assert first_review.turns_played == 1
+
+    gs.undo_last_suggestion()
+    assert not gs.is_solved()
+    app.after_mutation()
+    try:
+        assert app._game_review_shown is False
+        assert app._game_review_cache is None
+
+        gs.record_suggestion(
+            1, cards_by_name["Professor Plum"], cards_by_name["Wrench"], cards_by_name["Study"],
+            [SuggestionResponse(2, "no_show"), SuggestionResponse(0, "no_show")],
+        )
+        gs.record_suggestion(
+            0, cards_by_name["Reverend Green"], cards_by_name["Rope"], cards_by_name["Kitchen"],
+            [SuggestionResponse(1, "no_show"), SuggestionResponse(2, "no_show")],
+        )
+        assert gs.is_solved()
+        app.after_mutation()
+        opened.extend(w for w in _toplevels(root) if w not in before and w not in opened)
+
+        second_review = app._game_review_cache
+        assert second_review is not None
+        assert second_review.turns_played == 2
+        assert second_review is not first_review
+    finally:
+        for w in opened:
             w.destroy()
 
 

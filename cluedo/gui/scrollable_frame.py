@@ -37,6 +37,16 @@ def build_scrollable_frame(parent, theme) -> tuple[tk.Frame, tk.Frame]:
     inner = tk.Frame(canvas, bg=theme.bg)
     window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
 
+    # Scoped to this scrollable frame's own toplevel (not `bind_all`, which
+    # registers application-wide and is never unbound): every widget's
+    # default bindtags include its toplevel, so binding here still catches
+    # wheel/key events over `inner`'s descendants exactly like `bind_all`
+    # did, but the bindings die with the toplevel instead of accumulating
+    # forever across repeated open/close cycles of dialogs that call this
+    # helper (World Explorer, Turn Inspector, Game Review, etc. are each a
+    # fresh Toplevel per open).
+    toplevel = outer.winfo_toplevel()
+
     def _update_scrollbar_visibility():
         bbox = canvas.bbox("all")
         content_height = (bbox[3] - bbox[1]) if bbox else 0
@@ -96,9 +106,9 @@ def build_scrollable_frame(parent, theme) -> tuple[tk.Frame, tk.Frame]:
             return
         canvas.yview_scroll(_scroll_units(event), "units")
 
-    canvas.bind_all("<MouseWheel>", _on_mousewheel, add="+")
-    canvas.bind_all("<Button-4>", _on_mousewheel, add="+")
-    canvas.bind_all("<Button-5>", _on_mousewheel, add="+")
+    toplevel.bind("<MouseWheel>", _on_mousewheel, add="+")
+    toplevel.bind("<Button-4>", _on_mousewheel, add="+")
+    toplevel.bind("<Button-5>", _on_mousewheel, add="+")
 
     # ----------------------------------------------------------- keyboard
     canvas.bind("<Button-1>", lambda _event: canvas.focus_set())
@@ -116,11 +126,11 @@ def build_scrollable_frame(parent, theme) -> tuple[tk.Frame, tk.Frame]:
 
         return _handler
 
-    canvas.bind_all("<Up>", _on_key_scroll(-1, "units"), add="+")
-    canvas.bind_all("<Down>", _on_key_scroll(1, "units"), add="+")
-    canvas.bind_all("<Prior>", _on_key_scroll(-1, "pages"), add="+")
-    canvas.bind_all("<Next>", _on_key_scroll(1, "pages"), add="+")
-    canvas.bind_all("<Home>", _on_key_scroll(0, "moveto"), add="+")
-    canvas.bind_all("<End>", _on_key_scroll(1, "moveto"), add="+")
+    toplevel.bind("<Up>", _on_key_scroll(-1, "units"), add="+")
+    toplevel.bind("<Down>", _on_key_scroll(1, "units"), add="+")
+    toplevel.bind("<Prior>", _on_key_scroll(-1, "pages"), add="+")
+    toplevel.bind("<Next>", _on_key_scroll(1, "pages"), add="+")
+    toplevel.bind("<Home>", _on_key_scroll(0, "moveto"), add="+")
+    toplevel.bind("<End>", _on_key_scroll(1, "moveto"), add="+")
 
     return outer, inner

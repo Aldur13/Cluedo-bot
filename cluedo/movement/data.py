@@ -89,6 +89,7 @@ def _validate(raw: dict, edition_key: str, rooms: tuple[str, ...]) -> MovementDa
         raise MovementDataError("'secret_passages' must be a list of [room, room] pairs")
 
     seen_pairs = set()
+    seen_rooms = set()
     secret_passages = []
     for pair in secret_passages_raw:
         if not isinstance(pair, list) or len(pair) != 2:
@@ -101,7 +102,14 @@ def _validate(raw: dict, edition_key: str, rooms: tuple[str, ...]) -> MovementDa
         key = frozenset((a, b))
         if key in seen_pairs:
             raise MovementDataError(f"duplicate secret passage: {pair!r}")
+        # MovementGraph models passages as a one-to-one partner dict, so a room
+        # appearing in two pairs would silently overwrite its partner instead
+        # of erroring -- reject at load time rather than letting that happen.
+        if a in seen_rooms or b in seen_rooms:
+            raise MovementDataError(f"room appears in more than one secret passage: {pair!r}")
         seen_pairs.add(key)
+        seen_rooms.add(a)
+        seen_rooms.add(b)
         secret_passages.append((a, b))
 
     return MovementData(

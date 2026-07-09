@@ -20,6 +20,9 @@ from matplotlib.figure import Figure
 from cluedo.analysis.game_review import GameReview, compute_game_review
 from cluedo.gui import replay_screen
 from cluedo.gui.game_review_export import (
+    _int_or_na,
+    _pct,
+    _seconds_or_na,
     export_review_html,
     export_review_json,
     export_review_markdown,
@@ -266,19 +269,3 @@ def _largest_deduction_text(review: GameReview) -> "str | None":
     return f"{header}\n{body}"
 
 
-# -------------------------------------------------------------------- misc
-
-
-def _pct(value) -> str:
-    return "N/A" if value is None else f"{value:.0f}%"
-
-
-def _int_or_na(value) -> str:
-    return "N/A" if value is None else str(value)
-
-
-def _seconds_or_na(value) -> str:
-    if value is None:
-        return "N/A"
-    minutes, seconds = divmod(int(value), 60)
-    return f"{minutes}m {seconds}s"

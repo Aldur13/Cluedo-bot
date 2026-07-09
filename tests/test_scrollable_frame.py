@@ -137,3 +137,21 @@ def test_keyboard_scrolls_canvas_when_focus_within_content(root):
         assert canvas.yview()[0] > 0.0
     finally:
         win.destroy()
+
+
+def test_repeated_open_close_does_not_leak_application_wide_bindings(root):
+    # Regression: every call used to register 9 canvas.bind_all(...) handlers
+    # (application-wide "all" bindtag) that were never unbound, so repeatedly
+    # opening/closing a dialog using this helper (World Explorer, Turn
+    # Inspector, Game Review, ...) leaked a growing chain of dead closures
+    # referencing destroyed canvases. Binding scoped to the owning Toplevel
+    # instead means nothing from this helper should ever land on root's own
+    # "all" bindtag, and should be discarded when that Toplevel is destroyed.
+    before = root.bind_all("<MouseWheel>")
+    for _ in range(5):
+        win = tk.Toplevel(root)
+        build_scrollable_frame(win, LIGHT)
+        win.update_idletasks()
+        win.destroy()
+    after = root.bind_all("<MouseWheel>")
+    assert before == after

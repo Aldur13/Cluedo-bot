@@ -57,7 +57,7 @@ class CardConfig:
         }[card_type]
 
 
-def _validate(data: dict) -> CardConfig:
+def validate_card_config(data: dict) -> CardConfig:
     required_keys = {"edition", "suspects", "weapons", "rooms"}
     missing = required_keys - data.keys()
     if missing:
@@ -69,7 +69,12 @@ def _validate(data: dict) -> CardConfig:
     rooms: Sequence[str] = data["rooms"]
 
     for label, seq in (("suspects", suspects), ("weapons", weapons), ("rooms", rooms)):
-        if not isinstance(seq, list) or not all(isinstance(x, str) and x.strip() for x in seq):
+        # `all(...)` over an empty list is vacuously True, so this used to
+        # only catch a badly-typed element, not an empty category outright
+        # (e.g. zero suspects) -- explicitly reject that too, since nothing
+        # downstream (hand-size math, envelope-per-category capacity) is
+        # meaningful for a category with no cards in it.
+        if not isinstance(seq, list) or not seq or not all(isinstance(x, str) and x.strip() for x in seq):
             raise ConfigError(f"'{label}' must be a non-empty list of non-empty strings")
 
     all_names = list(suspects) + list(weapons) + list(rooms)
@@ -105,14 +110,18 @@ def load_card_config(path: Path | str | None = None) -> CardConfig:
         raise ConfigError(f"invalid JSON in card config: {exc}") from exc
     if not isinstance(data, dict):
         raise ConfigError("card config JSON must be an object")
-    return _validate(data)
+    return validate_card_config(data)
 
 
 def load_bundled_edition(key: str) -> CardConfig:
     if key not in BUNDLED_EDITIONS:
         raise ConfigError(f"unknown bundled edition '{key}', expected one of {sorted(BUNDLED_EDITIONS)}")
     raw = resources.files("cluedo.data").joinpath(BUNDLED_EDITIONS[key]).read_text(encoding="utf-8")
-    return _validate(json.loads(raw))
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ConfigError(f"invalid JSON in bundled edition '{key}': {exc}") from exc
+    return validate_card_config(data)
 
 
 def list_bundled_editions() -> list[tuple[str, str]]:
